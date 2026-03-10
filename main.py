@@ -2,6 +2,11 @@
 """
 JobFinder Bot — ищет вакансии на hh.ru и отправляет в Telegram канал.
 Запускается через GitHub Actions каждые 5 минут.
+
+Дедупликация:
+  - по ID вакансии (кэш 7 дней)
+  - по контенту: employer_id + название (ловит перезаливы одной и той же вакансии)
+  - отправляются только вакансии, опубликованные ПОСЛЕ первого запуска бота
 """
 
 import os
@@ -9,6 +14,7 @@ import sys
 import json
 import time
 import html
+import hashlib
 import re
 import logging
 from datetime import datetime, timedelta, timezone
@@ -19,7 +25,8 @@ import requests
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 HH_USER_AGENT = "JobFinderBot/1.0 (igorao79@github.com)"
-SEEN_IDS_FILE = "seen_ids.json"
+CACHE_FILE = "seen_ids.json"
+CACHE_TTL_DAYS = 7
 
 # Ключевые слова (ищет в названии И описании вакансии)
 KEYWORDS = [
@@ -41,29 +48,57 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# ========== Дедупликация через файл ==========
+# ========== Кэш (дедупликация) ==========
 
-def load_seen_ids():
-    """Загрузить виденные ID из файла. Удаляет записи старше 7 дней."""
+def load_cache():
+    """
+    Загрузить кэш. Формат:
+    {
+        "init_time": "ISO-timestamp первого запуска",
+        "seen_ids":          {"vacancy_id": "ISO-timestamp", ...},
+        "seen_fingerprints": {"hash": "ISO-timestamp", ...}
+    }
+    """
     try:
-        with open(SEEN_IDS_FILE, "r") as f:
+        with open(CACHE_FILE, "r") as f:
             data = json.load(f)
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-        return {k: v for k, v in data.items() if v > cutoff}
     except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+        data = {}
+
+    # Гарантируем структуру
+    data.setdefault("init_time", "")
+    data.setdefault("seen_ids", {})
+    data.setdefault("seen_fingerprints", {})
+
+    # Чистим записи старше 7 дней
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=CACHE_TTL_DAYS)).isoformat()
+    data["seen_ids"] = {k: v for k, v in data["seen_ids"].items() if v > cutoff}
+    data["seen_fingerprints"] = {
+        k: v for k, v in data["seen_fingerprints"].items() if v > cutoff
+    }
+
+    return data
 
 
-def save_seen_ids(seen_ids):
-    """Сохранить виденные ID в файл."""
-    with open(SEEN_IDS_FILE, "w") as f:
-        json.dump(seen_ids, f)
+def save_cache(data):
+    with open(CACHE_FILE, "w") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+
+def vacancy_fingerprint(vacancy):
+    """
+    Хэш: employer_id + нормализованное название.
+    Ловит перезаливы одной и той же вакансии с новым ID.
+    """
+    employer_id = str(vacancy.get("employer", {}).get("id", ""))
+    name = vacancy.get("name", "").lower().strip()
+    raw = f"{employer_id}::{name}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 # ========== hh.ru API ==========
 
 def find_tula_area_id():
-    """Находит ID города Тула через hh.ru Areas API."""
     try:
         resp = requests.get(
             "https://api.hh.ru/areas/113",
@@ -83,7 +118,6 @@ def find_tula_area_id():
 
 
 def search_vacancies(text, schedule=None, area=None):
-    """Поиск вакансий через hh.ru API (без авторизации)."""
     params = {
         "text": text,
         "per_page": 100,
@@ -129,7 +163,6 @@ def search_vacancies(text, schedule=None, area=None):
 
 
 def get_vacancy_details(vacancy_id):
-    """Получить полное описание вакансии."""
     try:
         resp = requests.get(
             f"https://api.hh.ru/vacancies/{vacancy_id}",
@@ -146,7 +179,6 @@ def get_vacancy_details(vacancy_id):
 # ========== Утилиты ==========
 
 def keyword_matches(text):
-    """Проверяет наличие ключевых слов в тексте."""
     if not text:
         return False
     text_lower = text.lower()
@@ -234,16 +266,28 @@ def main():
 
     logger.info("=== Starting vacancy check ===")
 
-    seen_ids = load_seen_ids()
-    logger.info(f"Loaded {len(seen_ids)} seen vacancy IDs")
+    cache = load_cache()
+    init_time = cache["init_time"]
+    seen_ids = cache["seen_ids"]
+    seen_fps = cache["seen_fingerprints"]
+
+    # --- Первый запуск: запоминаем время, ничего не отправляем ---
+    if not init_time:
+        init_time = datetime.now(timezone.utc).isoformat()
+        cache["init_time"] = init_time
+        save_cache(cache)
+        logger.info(f"First run — init_time set to {init_time}. No vacancies will be sent this run.")
+        return
+
+    logger.info(f"init_time: {init_time}")
+    logger.info(f"Cache: {len(seen_ids)} IDs, {len(seen_fps)} fingerprints")
 
     tula_id = find_tula_area_id()
     logger.info(f"Tula area ID: {tula_id}")
 
-    # Собираем кандидатов
+    # --- Собираем кандидатов ---
     candidates = {}
 
-    # 1) Удалённая работа — любой город
     logger.info("Searching remote vacancies...")
     for v in search_vacancies(SEARCH_QUERY, schedule="remote"):
         candidates[v["id"]] = v
@@ -251,7 +295,6 @@ def main():
 
     time.sleep(0.5)
 
-    # 2) Тула — любой график
     if tula_id:
         logger.info("Searching Tula vacancies...")
         before = len(candidates)
@@ -259,14 +302,35 @@ def main():
             candidates[v["id"]] = v
         logger.info(f"Tula: +{len(candidates) - before}")
 
-    # Только новые
-    new_vacancies = {vid: v for vid, v in candidates.items() if vid not in seen_ids}
-    logger.info(f"Total: {len(candidates)}, new: {len(new_vacancies)}")
-
-    sent_count = 0
+    # --- Фильтрация ---
     now = datetime.now(timezone.utc).isoformat()
+    sent_count = 0
+    skipped_old = 0
+    skipped_seen = 0
+    skipped_fp = 0
+    skipped_kw = 0
 
-    for vid, vacancy in new_vacancies.items():
+    for vid, vacancy in candidates.items():
+        # 1) Уже видели этот ID
+        if vid in seen_ids:
+            skipped_seen += 1
+            continue
+
+        # 2) Вакансия опубликована ДО инициализации бота — пропускаем
+        published_at = vacancy.get("published_at", "")
+        if published_at and published_at < init_time:
+            skipped_old += 1
+            seen_ids[vid] = now
+            continue
+
+        # 3) Контентный fingerprint (employer + название) — ловим перезаливы
+        fp = vacancy_fingerprint(vacancy)
+        if fp in seen_fps:
+            skipped_fp += 1
+            seen_ids[vid] = now
+            continue
+
+        # 4) Проверяем ключевые слова в описании
         details = get_vacancy_details(vid)
         time.sleep(0.3)
 
@@ -274,10 +338,12 @@ def main():
         description = strip_html(details.get("description", "")) if details else ""
 
         if not keyword_matches(name) and not keyword_matches(description):
-            logger.info(f"Skip {vid} — no keyword match")
+            skipped_kw += 1
             seen_ids[vid] = now
+            seen_fps[fp] = now
             continue
 
+        # 5) Отправляем
         msg = format_vacancy_message(vacancy, details)
         result = send_telegram_message(msg)
 
@@ -286,10 +352,19 @@ def main():
             logger.info(f"Sent: {name}")
 
         seen_ids[vid] = now
+        seen_fps[fp] = now
         time.sleep(0.5)
 
-    save_seen_ids(seen_ids)
-    logger.info(f"=== Done! Sent {sent_count} vacancies ===")
+    # --- Сохраняем кэш ---
+    cache["seen_ids"] = seen_ids
+    cache["seen_fingerprints"] = seen_fps
+    save_cache(cache)
+
+    logger.info(
+        f"=== Done! Sent: {sent_count} | "
+        f"Skipped — seen: {skipped_seen}, old: {skipped_old}, "
+        f"repost: {skipped_fp}, no keywords: {skipped_kw} ==="
+    )
 
 
 if __name__ == "__main__":
