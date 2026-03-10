@@ -1,0 +1,40 @@
+name: Daily Digest
+
+on:
+  schedule:
+    # 21:00 MSK = 18:00 UTC
+    - cron: "0 18 * * *"
+  workflow_dispatch: # ручной запуск
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore cache
+        uses: actions/cache/restore@v4
+        with:
+          path: seen_ids.json
+          key: seen-ids-dummy
+          restore-keys: seen-ids-
+
+      - name: Send daily digest
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py --digest
+
+      - name: Save cache
+        uses: actions/cache/save@v4
+        with:
+          path: seen_ids.json
+          key: seen-ids-${{ github.run_id }}

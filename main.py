@@ -70,6 +70,7 @@ def load_cache():
     data.setdefault("vacancy_counter", 0)
     data.setdefault("seen_ids", {})
     data.setdefault("seen_fingerprints", {})
+    data.setdefault("daily_stats", {"date": "", "sent_today": 0})
 
     # Чистим записи старше 7 дней
     cutoff = (datetime.now(timezone.utc) - timedelta(days=CACHE_TTL_DAYS)).isoformat()
@@ -282,12 +283,62 @@ def send_telegram_message(text):
         return None
 
 
+# ========== Дайджест ==========
+
+def send_daily_digest(cache):
+    """Отправляет ежедневную статистику в Telegram."""
+    stats = cache["daily_stats"]
+    total = cache["vacancy_counter"]
+    init_time = cache.get("init_time", "")
+
+    # Дата в формате ДД.ММ.ГГГГ
+    today = datetime.now(timezone(timedelta(hours=3)))  # MSK
+    date_str = today.strftime("%d.%m.%Y")
+
+    sent_today = stats.get("sent_today", 0)
+
+    # Дней с запуска
+    days_running = ""
+    if init_time:
+        try:
+            init_dt = datetime.fromisoformat(init_time)
+            delta = today - init_dt
+            days_running = f"\n\U0001F4C5 Дней работы: {delta.days}"
+        except Exception:
+            pass
+
+    lines = [
+        "\U0001F4CA <b>Статистика за день</b>",
+        f"\U0001F4C6 {date_str}",
+        "",
+        f"\U0001F4EC Сегодня: <b>{sent_today}</b> вакансий",
+        f"\U0001F4C8 Всего с запуска: <b>{total}</b> вакансий",
+    ]
+    if days_running:
+        lines.append(days_running)
+
+    msg = "\n".join(lines)
+    send_telegram_message(msg)
+    logger.info(f"Digest sent: today={sent_today}, total={total}")
+
+    # Сбрасываем дневной счётчик
+    cache["daily_stats"] = {"date": today.strftime("%Y-%m-%d"), "sent_today": 0}
+    save_cache(cache)
+
+
 # ========== Main ==========
 
 def main():
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         logger.error("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set!")
         sys.exit(1)
+
+    # Режим дайджеста
+    if "--digest" in sys.argv:
+        logger.info("=== Sending daily digest ===")
+        cache = load_cache()
+        send_daily_digest(cache)
+        return
 
     logger.info("=== Starting vacancy check ===")
 
@@ -327,6 +378,13 @@ def main():
         for v in search_vacancies(SEARCH_QUERY, area=tula_id):
             candidates[v["id"]] = v
         logger.info(f"Tula: +{len(candidates) - before}")
+
+    # --- Дневная статистика ---
+    today_msk = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d")
+    stats = cache["daily_stats"]
+    if stats.get("date") != today_msk:
+        stats["date"] = today_msk
+        stats["sent_today"] = 0
 
     # --- Фильтрация ---
     now = datetime.now(timezone.utc).isoformat()
@@ -383,6 +441,7 @@ def main():
 
         if result and result.get("ok"):
             sent_count += 1
+            stats["sent_today"] += 1
             logger.info(f"Sent #{vacancy_counter}: {name}")
 
         seen_ids[vid] = now
@@ -391,6 +450,7 @@ def main():
 
     # --- Сохраняем кэш ---
     cache["vacancy_counter"] = vacancy_counter
+    cache["daily_stats"] = stats
     cache["seen_ids"] = seen_ids
     cache["seen_fingerprints"] = seen_fps
     save_cache(cache)
