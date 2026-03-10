@@ -241,8 +241,8 @@ def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=Non
         f"\U0001F4E2 <b>Вакансия №{number}</b>",
         "",
         f"\U0001F50E <b>{name}</b>",
-        "",
         f"\U0001F3E2 {employer}",
+        "",
         f"\U0001F4CD {area}",
         f"\U0001F4B0 {salary_text}",
     ]
