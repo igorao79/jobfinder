@@ -39,6 +39,15 @@ KEYWORDS = [
     "Claude Code",
 ]
 
+# Стоп-слова в названии вакансии (senior, lead, и т.д.)
+TITLE_BLACKLIST = [
+    "senior", "сеньор", "сениор", "ведущий",
+    "team lead", "тимлид", "тим лид", "teamlead",
+    "lead", "лид", "principal", "staff",
+    "head of", "director", "директор",
+    "архитектор", "architect",
+]
+
 # OR-запрос для hh.ru
 SEARCH_QUERY = " OR ".join(f'"{kw}"' for kw in KEYWORDS)
 
@@ -185,6 +194,14 @@ def keyword_matches(text):
         return False
     text_lower = text.lower()
     return any(kw.lower() in text_lower for kw in KEYWORDS)
+
+
+def is_blacklisted_title(title):
+    """Проверяет, содержит ли название вакансии стоп-слова (senior, lead и т.д.)."""
+    if not title:
+        return False
+    title_lower = title.lower()
+    return any(word in title_lower for word in TITLE_BLACKLIST)
 
 
 def find_matched_keywords(name, description):
@@ -393,6 +410,7 @@ def main():
     skipped_seen = 0
     skipped_fp = 0
     skipped_kw = 0
+    skipped_grade = 0
 
     for vid, vacancy in candidates.items():
         # 1) Уже видели этот ID
@@ -407,18 +425,25 @@ def main():
             seen_ids[vid] = now
             continue
 
-        # 3) Контентный fingerprint (employer + название) — ловим перезаливы
+        # 3) Фильтр по грейду — пропускаем senior/lead/architect
+        name = vacancy.get("name", "")
+        if is_blacklisted_title(name):
+            skipped_grade += 1
+            seen_ids[vid] = now
+            logger.info(f"Skip {vid} — blacklisted grade: {name}")
+            continue
+
+        # 4) Контентный fingerprint (employer + название) — ловим перезаливы
         fp = vacancy_fingerprint(vacancy)
         if fp in seen_fps:
             skipped_fp += 1
             seen_ids[vid] = now
             continue
 
-        # 4) Проверяем ключевые слова в описании
+        # 5) Проверяем ключевые слова в описании
         details = get_vacancy_details(vid)
         time.sleep(0.3)
 
-        name = vacancy.get("name", "")
         description = strip_html(details.get("description", "")) if details else ""
 
         # Ищем совпавшие ключевые слова
@@ -430,7 +455,7 @@ def main():
             seen_fps[fp] = now
             continue
 
-        # 5) Отправляем
+        # 6) Отправляем
         vacancy_counter += 1
         msg = format_vacancy_message(
             vacancy, details,
@@ -458,7 +483,7 @@ def main():
     logger.info(
         f"=== Done! Sent: {sent_count} | "
         f"Skipped — seen: {skipped_seen}, old: {skipped_old}, "
-        f"repost: {skipped_fp}, no keywords: {skipped_kw} ==="
+        f"grade: {skipped_grade}, repost: {skipped_fp}, no keywords: {skipped_kw} ==="
     )
 
 
