@@ -67,6 +67,7 @@ def load_cache():
 
     # Гарантируем структуру
     data.setdefault("init_time", "")
+    data.setdefault("vacancy_counter", 0)
     data.setdefault("seen_ids", {})
     data.setdefault("seen_fingerprints", {})
 
@@ -185,6 +186,16 @@ def keyword_matches(text):
     return any(kw.lower() in text_lower for kw in KEYWORDS)
 
 
+def find_matched_keywords(name, description):
+    """Возвращает список найденных ключевых слов в названии и описании."""
+    combined = (name + " " + description).lower()
+    found = []
+    for kw in KEYWORDS:
+        if kw.lower() in combined and kw not in found:
+            found.append(kw)
+    return found
+
+
 def strip_html(text):
     if not text:
         return ""
@@ -206,7 +217,7 @@ def format_salary(salary):
     return " ".join(parts) + f" {currency}{gross}"
 
 
-def format_vacancy_message(vacancy, details=None):
+def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=None):
     name = html.escape(vacancy.get("name", "Без названия"))
     employer = html.escape(vacancy.get("employer", {}).get("name", "Неизвестно"))
     area = html.escape(vacancy.get("area", {}).get("name", ""))
@@ -221,8 +232,16 @@ def format_vacancy_message(vacancy, details=None):
     if details and details.get("experience"):
         experience_text = details["experience"].get("name", "")
 
+    # Найденные ключевые слова
+    kw_text = ""
+    if matched_keywords:
+        kw_text = ", ".join(matched_keywords)
+
     lines = [
-        f"<b>{name}</b>",
+        f"\U0001F4E2 <b>Вакансия №{number}</b>",
+        "",
+        f"\U0001F50E <b>{name}</b>",
+        "",
         f"\U0001F3E2 {employer}",
         f"\U0001F4CD {area}",
         f"\U0001F4B0 {salary_text}",
@@ -231,7 +250,13 @@ def format_vacancy_message(vacancy, details=None):
         lines.append(f"\U0001F4CB {html.escape(schedule_text)}")
     if experience_text:
         lines.append(f"\U0001F4CA {html.escape(experience_text)}")
-    lines.append(f'\n<a href="{url}">Открыть вакансию</a>')
+
+    lines.append("")
+    if kw_text:
+        lines.append(f"\U0001F3AF Совпадение: <i>{html.escape(kw_text)}</i>")
+        lines.append("")
+
+    lines.append(f'<a href="{url}">\U0001F517 Открыть вакансию</a>')
 
     return "\n".join(lines)
 
@@ -268,6 +293,7 @@ def main():
 
     cache = load_cache()
     init_time = cache["init_time"]
+    vacancy_counter = cache["vacancy_counter"]
     seen_ids = cache["seen_ids"]
     seen_fps = cache["seen_fingerprints"]
 
@@ -337,25 +363,34 @@ def main():
         name = vacancy.get("name", "")
         description = strip_html(details.get("description", "")) if details else ""
 
-        if not keyword_matches(name) and not keyword_matches(description):
+        # Ищем совпавшие ключевые слова
+        matched = find_matched_keywords(name, description)
+
+        if not matched:
             skipped_kw += 1
             seen_ids[vid] = now
             seen_fps[fp] = now
             continue
 
         # 5) Отправляем
-        msg = format_vacancy_message(vacancy, details)
+        vacancy_counter += 1
+        msg = format_vacancy_message(
+            vacancy, details,
+            number=vacancy_counter,
+            matched_keywords=matched,
+        )
         result = send_telegram_message(msg)
 
         if result and result.get("ok"):
             sent_count += 1
-            logger.info(f"Sent: {name}")
+            logger.info(f"Sent #{vacancy_counter}: {name}")
 
         seen_ids[vid] = now
         seen_fps[fp] = now
         time.sleep(0.5)
 
     # --- Сохраняем кэш ---
+    cache["vacancy_counter"] = vacancy_counter
     cache["seen_ids"] = seen_ids
     cache["seen_fingerprints"] = seen_fps
     save_cache(cache)
