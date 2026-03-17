@@ -42,13 +42,38 @@ KEYWORDS = [
     "Claude Code",
 ]
 
-# Стоп-слова в названии вакансии (senior, lead, и т.д.)
+# Стоп-слова в названии вакансии (senior, lead, нерелевантные роли)
 TITLE_BLACKLIST = [
+    # Грейд
     "senior", "сеньор", "сениор", "ведущий",
     "team lead", "тимлид", "тим лид", "teamlead",
     "lead", "лид", "principal", "staff",
     "head of", "director", "директор",
     "архитектор", "architect",
+    # Нерелевантные роли (не разработка)
+    "analyst", "аналитик",
+    "менеджер", "manager",
+    "руководитель",
+    "product owner",
+    "проджект", "project manager",
+    "трафик", "traffic",
+    "маркетолог", "marketing",
+    "дизайнер", "designer",
+    "рекрутер", "recruiter", "hr",
+    "sales", "продажи",
+    "копирайтер", "copywriter",
+    "контент", "content manager",
+    "seo", "smm",
+    "business owner",
+    "data scientist",
+    "data analyst",
+    "product analyst",
+]
+
+# Работодатели в чёрном списке
+EMPLOYER_BLACKLIST = [
+    "mstech l.l.c-fz",
+    "mstech",
 ]
 
 # OR-запрос для hh.ru
@@ -200,11 +225,17 @@ def keyword_matches(text):
 
 
 def is_blacklisted_title(title):
-    """Проверяет, содержит ли название вакансии стоп-слова (senior, lead и т.д.)."""
+    """Проверяет, содержит ли название вакансии стоп-слова (senior, lead, нерелевантные роли)."""
     if not title:
         return False
     title_lower = title.lower()
     return any(word in title_lower for word in TITLE_BLACKLIST)
+
+
+def is_blacklisted_employer(vacancy):
+    """Проверяет, находится ли работодатель в чёрном списке."""
+    employer_name = vacancy.get("employer", {}).get("name", "").lower().strip()
+    return any(bl in employer_name for bl in EMPLOYER_BLACKLIST)
 
 
 def find_matched_keywords(name, description):
@@ -572,12 +603,20 @@ def main():
             seen_ids[vid] = now
             continue
 
-        # 3) Фильтр по грейду — пропускаем senior/lead/architect
+        # 3) Фильтр по грейду и нерелевантным ролям
         name = vacancy.get("name", "")
         if is_blacklisted_title(name):
             skipped_grade += 1
             seen_ids[vid] = now
-            logger.info(f"Skip {vid} — blacklisted grade: {name}")
+            logger.info(f"Skip {vid} — blacklisted title: {name}")
+            continue
+
+        # 3.5) Фильтр по работодателю
+        if is_blacklisted_employer(vacancy):
+            skipped_grade += 1
+            seen_ids[vid] = now
+            employer_name = vacancy.get("employer", {}).get("name", "")
+            logger.info(f"Skip {vid} — blacklisted employer: {employer_name}")
             continue
 
         # 4) Контентный fingerprint (employer + название) — ловим перезаливы
