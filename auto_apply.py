@@ -208,63 +208,159 @@ def _load_cookies(context):
         return False
 
 
+def _extract_phone_number(phone):
+    """Извлекает номер без +7/8 для ввода в поле hh.ru."""
+    phone = phone.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if phone.startswith("+7"):
+        return phone[2:]
+    if phone.startswith("8") and len(phone) == 11:
+        return phone[1:]
+    if phone.startswith("7") and len(phone) == 11:
+        return phone[1:]
+    return phone
+
+
 def _login(page):
-    """Логин на hh.ru по телефону и паролю с имитацией человека."""
+    """
+    Логин на hh.ru — многошаговый флоу:
+    1) Выбор роли "Я ищу работу" → "Войти"
+    2) Ввод номера телефона
+    3) "Войти с паролем"
+    4) Ввод пароля → "Войти"
+    """
     logger.info("Logging in to hh.ru...")
 
+    # --- Шаг 1: Страница выбора роли ---
     page.goto("https://hh.ru/account/login", wait_until="domcontentloaded")
-    _human_delay(1.5, 3.0)
-
-    # Случайное движение мыши перед действиями
+    _human_delay(2.0, 3.5)
     _random_mouse_movement(page)
     _human_delay(0.5, 1.0)
 
-    # Переключаемся на вход по паролю
+    # "Я ищу работу" уже выбрано по умолчанию — кликаем "Войти"
     try:
-        password_tab = page.locator('[data-qa="expand-login-by-password"]')
-        if password_tab.is_visible(timeout=5000):
-            password_tab.click()
-            _human_delay(0.8, 1.5)
+        submit_btn = page.locator('[data-qa="submit-button"]')
+        if submit_btn.is_visible(timeout=5000):
+            submit_btn.click()
+            _human_delay(2.0, 3.0)
+            logger.info("Step 1: Role selected, clicked 'Войти'")
+    except Exception as e:
+        logger.error(f"Step 1 failed: {e}")
+        return False
+
+    # --- Шаг 2: Ввод номера телефона ---
+    phone_number = _extract_phone_number(HH_PHONE)
+    try:
+        phone_input = page.locator('[data-qa="magritte-phone-input-national-number-input"]')
+        if phone_input.is_visible(timeout=5000):
+            phone_input.click()
+            _human_delay(0.3, 0.7)
+            phone_input.press_sequentially(phone_number, delay=random.randint(50, 150))
+            _human_delay(0.5, 1.0)
+            logger.info(f"Step 2: Phone entered ({phone_number[:3]}****)")
+        else:
+            logger.error("Phone input not found")
+            return False
+    except Exception as e:
+        logger.error(f"Step 2 failed: {e}")
+        return False
+
+    # --- Шаг 3: "Войти с паролем" ---
+    try:
+        pwd_btn = page.locator('[data-qa="expand-login-by-password"]')
+        if pwd_btn.is_visible(timeout=5000):
+            _random_mouse_movement(page)
+            _human_delay(0.3, 0.8)
+            pwd_btn.click()
+            _human_delay(2.0, 3.0)
+            logger.info("Step 3: Clicked 'Войти с паролем'")
+        else:
+            logger.error("'Войти с паролем' button not found")
+            return False
+    except Exception as e:
+        logger.error(f"Step 3 failed: {e}")
+        return False
+
+    # --- Шаг 4: Ввод пароля ---
+    try:
+        password_input = page.locator('[data-qa="applicant-login-input-password"]')
+        if not password_input.is_visible(timeout=5000):
+            # fallback
+            password_input = page.locator('input[type="password"]')
+
+        if password_input.is_visible(timeout=3000):
+            password_input.click()
+            _human_delay(0.2, 0.5)
+            password_input.press_sequentially(HH_PASSWORD, delay=random.randint(40, 130))
+            _human_delay(0.5, 1.2)
+            logger.info("Step 4: Password entered")
+        else:
+            logger.error("Password input not found")
+            return False
+    except Exception as e:
+        logger.error(f"Step 4 failed: {e}")
+        return False
+
+    # --- Шаг 5: Нажимаем "Войти" ---
+    try:
+        submit_btn = page.locator('[data-qa="submit-button"]')
+        _random_mouse_movement(page)
+        _human_delay(0.3, 0.6)
+        submit_btn.click()
+        _human_delay(3.0, 5.0)
+        logger.info("Step 5: Clicked 'Войти'")
+    except Exception as e:
+        logger.error(f"Step 5 failed: {e}")
+        return False
+
+    # --- Проверка ---
+    # После логина hh.ru может остаться на том же URL но показать главную
+    # Проверяем наличие элементов авторизованного пользователя
+    _human_delay(1.0, 2.0)
+
+    # Проверяем: если есть навигация соискателя — мы залогинены
+    logged_in = False
+    try:
+        # Элементы, видимые только залогиненному пользователю
+        auth_selectors = [
+            '[data-qa="mainmenu_applicantProfile"]',
+            '[data-qa="mainmenu_responses"]',
+            'text="Резюме и профиль"',
+            'text="Отклики"',
+        ]
+        for sel in auth_selectors:
+            try:
+                if page.locator(sel).first.is_visible(timeout=2000):
+                    logged_in = True
+                    break
+            except Exception:
+                continue
     except Exception:
         pass
 
-    # Вводим логин (телефон) — посимвольно
-    login_input = page.locator('input[name="login"]')
-    if not login_input.is_visible(timeout=5000):
-        login_input = page.locator('input[data-qa="login-input-username"]')
+    if not logged_in:
+        # Fallback: пробуем перейти на главную и проверить
+        page.goto("https://hh.ru", wait_until="domcontentloaded")
+        _human_delay(1.5, 2.5)
+        try:
+            login_btn = page.locator('[data-qa="login"]')
+            if login_btn.is_visible(timeout=3000):
+                logger.error("Login failed — 'Войти' button still visible")
+                try:
+                    page.screenshot(path="login_failed.png")
+                except Exception:
+                    pass
+                return False
+            else:
+                logged_in = True
+        except Exception:
+            logged_in = True  # Если кнопки "Войти" нет — значит залогинены
 
-    login_input.click()
-    _human_delay(0.3, 0.7)
-    login_input.press_sequentially(HH_PHONE, delay=random.randint(50, 150))
-    _human_delay(0.5, 1.0)
+    if logged_in:
+        logger.info(f"Login successful! URL: {page.url}")
+        return True
 
-    # Вводим пароль — посимвольно
-    password_input = page.locator('input[type="password"]')
-    if not password_input.is_visible(timeout=3000):
-        password_input = page.locator('input[data-qa="login-input-password"]')
-
-    password_input.click()
-    _human_delay(0.2, 0.5)
-    password_input.press_sequentially(HH_PASSWORD, delay=random.randint(40, 130))
-    _human_delay(0.5, 1.2)
-
-    # Нажимаем кнопку входа
-    submit_btn = page.locator('[data-qa="account-login-submit"]')
-    if not submit_btn.is_visible(timeout=3000):
-        submit_btn = page.locator('button[type="submit"]')
-
-    _random_mouse_movement(page)
-    _human_delay(0.3, 0.6)
-    submit_btn.click()
-    _human_delay(3.0, 5.0)
-
-    # Проверяем успешность входа
-    if "account/login" in page.url:
-        logger.error(f"Login may have failed, still on login page: {page.url}")
-        return False
-
-    logger.info(f"Login successful, redirected to: {page.url}")
-    return True
+    logger.error(f"Login status unclear. URL: {page.url}")
+    return False
 
 
 def _is_logged_in(page):
@@ -272,6 +368,19 @@ def _is_logged_in(page):
     page.goto("https://hh.ru", wait_until="domcontentloaded")
     _human_delay(1.5, 2.5)
 
+    # Проверяем наличие элементов авторизованного пользователя
+    auth_selectors = [
+        '[data-qa="mainmenu_applicantProfile"]',
+        '[data-qa="mainmenu_responses"]',
+    ]
+    for sel in auth_selectors:
+        try:
+            if page.locator(sel).first.is_visible(timeout=2000):
+                return True
+        except Exception:
+            continue
+
+    # Fallback: если есть кнопка "Войти" — не залогинены
     try:
         login_btn = page.locator('[data-qa="login"]')
         if login_btn.is_visible(timeout=3000):
@@ -440,23 +549,45 @@ def apply_to_vacancy(vacancy_url, vacancy_name=""):
 
             # --- Ищем кнопку "Откликнуться" ---
 
-            # Иногда скроллим обратно наверх к кнопке
-            if random.random() < 0.5:
-                page.evaluate("window.scrollTo(0, 0)")
-                _human_delay(0.5, 1.0)
+            # Скроллим наверх к кнопке
+            page.evaluate("window.scrollTo(0, 0)")
+            _human_delay(0.8, 1.5)
 
-            respond_btn = page.locator('[data-qa="vacancy-response-link-top"]')
+            respond_btn = None
 
-            if not respond_btn.is_visible(timeout=5000):
-                respond_btn = page.locator('[data-qa="vacancy-response-link-bottom"]')
+            # На странице может быть несколько элементов с одним data-qa
+            btn_all = page.locator('[data-qa="vacancy-response-link-top"]')
+            try:
+                for i in range(btn_all.count()):
+                    btn = btn_all.nth(i)
+                    if btn.is_visible(timeout=2000):
+                        respond_btn = btn
+                        break
+            except Exception:
+                pass
 
-            if not respond_btn.is_visible(timeout=3000):
+            if not respond_btn:
+                btn_bottom = page.locator('[data-qa="vacancy-response-link-bottom"]')
+                try:
+                    for i in range(btn_bottom.count()):
+                        btn = btn_bottom.nth(i)
+                        if btn.is_visible(timeout=2000):
+                            respond_btn = btn
+                            break
+                except Exception:
+                    pass
+
+            if not respond_btn:
                 # Может уже откликались
                 already = page.locator('text="Вы откликнулись"')
-                if already.is_visible(timeout=2000):
-                    logger.info(f"Already applied to: {vacancy_name}")
-                    result = "already_applied"
-                else:
+                try:
+                    if already.first.is_visible(timeout=2000):
+                        logger.info(f"Already applied to: {vacancy_name}")
+                        result = "already_applied"
+                    else:
+                        logger.warning(f"No apply button found for: {vacancy_name}")
+                        result = "no_button"
+                except Exception:
                     logger.warning(f"No apply button found for: {vacancy_name}")
                     result = "no_button"
                 return result

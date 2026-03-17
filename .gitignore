@@ -10,3 +10,9 @@ venv/
 env/
 *.egg
 .eggs/
+
+# Auto-apply debug & runtime files
+hh_cookies.json
+*.png
+debug_*.py
+login_failed.png
