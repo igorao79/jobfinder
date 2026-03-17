@@ -416,9 +416,6 @@ def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=Non
     elif apply_status == "skipped_limit":
         lines.append("")
         lines.append("\u23f8\ufe0f Лимит откликов за запуск исчерпан")
-    elif apply_status == "skipped_random":
-        lines.append("")
-        lines.append("\U0001f3b2 Автоотклик случайно пропущен (антидетект)")
     elif apply_status == "skipped_questions":
         lines.append("")
         lines.append("\u270b Автоотклик пропущен (доп. вопросы работодателя)")

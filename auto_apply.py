@@ -30,7 +30,6 @@ AUTO_APPLY_ENABLED = os.environ.get("AUTO_APPLY_ENABLED", "false").lower() == "t
 
 # Антидетект: лимиты
 MAX_APPLIES_PER_RUN = 3  # Максимум откликов за один запуск (каждые 5 мин)
-SKIP_PROBABILITY = 0.15  # 15% шанс случайно пропустить вакансию (имитация "не заинтересовало")
 MIN_DELAY_BETWEEN_APPLIES = 25  # Минимальная пауза между откликами (сек)
 MAX_DELAY_BETWEEN_APPLIES = 75  # Максимальная пауза между откликами (сек)
 
@@ -644,10 +643,7 @@ def apply_to_vacancy(vacancy_url, vacancy_name=""):
         logger.info(f"Apply limit reached ({MAX_APPLIES_PER_RUN}), skipping: {vacancy_name}")
         return "skipped_limit"
 
-    # --- Антидетект: случайный пропуск (имитация "не заинтересовало") ---
-    if random.random() < SKIP_PROBABILITY:
-        logger.info(f"Random skip ({SKIP_PROBABILITY*100:.0f}% chance): {vacancy_name}")
-        return "skipped_random"
+    # Случайный пропуск убран — откликаемся на всё что прошло фильтры
 
     # --- Антидетект: пауза между откликами ---
     if _applies_this_run > 0:
