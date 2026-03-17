@@ -21,6 +21,8 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
+from auto_apply import is_auto_apply_available, apply_to_vacancy
+
 # --- Конфигурация ---
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
@@ -235,7 +237,7 @@ def format_salary(salary):
     return " ".join(parts) + f" {currency}{gross}"
 
 
-def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=None):
+def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=None, apply_status=None):
     name = html.escape(vacancy.get("name", "Без названия"))
     employer = html.escape(vacancy.get("employer", {}).get("name", "Неизвестно"))
     area = html.escape(vacancy.get("area", {}).get("name", ""))
@@ -275,6 +277,16 @@ def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=Non
         lines.append("")
 
     lines.append(f'<a href="{url}">\U0001F517 Открыть вакансию</a>')
+
+    if apply_status == "applied":
+        lines.append("")
+        lines.append("\u2705 <b>Автоотклик отправлен</b>")
+    elif apply_status == "already_applied":
+        lines.append("")
+        lines.append("\u2611\ufe0f Уже откликались ранее")
+    elif apply_status == "failed":
+        lines.append("")
+        lines.append("\u274c Автоотклик не удался")
 
     return "\n".join(lines)
 
@@ -403,9 +415,17 @@ def main():
         stats["date"] = today_msk
         stats["sent_today"] = 0
 
+    # --- Автоотклик ---
+    auto_apply = is_auto_apply_available()
+    if auto_apply:
+        logger.info("Auto-apply is ENABLED")
+    else:
+        logger.info("Auto-apply is disabled")
+
     # --- Фильтрация ---
     now = datetime.now(timezone.utc).isoformat()
     sent_count = 0
+    applied_count = 0
     skipped_old = 0
     skipped_seen = 0
     skipped_fp = 0
@@ -455,12 +475,23 @@ def main():
             seen_fps[fp] = now
             continue
 
-        # 6) Отправляем
+        # 6) Автоотклик (если включён)
+        apply_status = None
+        if auto_apply:
+            vacancy_url = vacancy.get("alternate_url", "")
+            if vacancy_url:
+                apply_status = apply_to_vacancy(vacancy_url, name)
+                if apply_status == "applied":
+                    applied_count += 1
+                time.sleep(1)
+
+        # 7) Отправляем в Telegram
         vacancy_counter += 1
         msg = format_vacancy_message(
             vacancy, details,
             number=vacancy_counter,
             matched_keywords=matched,
+            apply_status=apply_status,
         )
         result = send_telegram_message(msg)
 
@@ -481,7 +512,7 @@ def main():
     save_cache(cache)
 
     logger.info(
-        f"=== Done! Sent: {sent_count} | "
+        f"=== Done! Sent: {sent_count}, Applied: {applied_count} | "
         f"Skipped — seen: {skipped_seen}, old: {skipped_old}, "
         f"grade: {skipped_grade}, repost: {skipped_fp}, no keywords: {skipped_kw} ==="
     )
