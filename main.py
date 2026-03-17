@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from auto_apply import is_auto_apply_available, apply_to_vacancy
+from auto_apply import is_auto_apply_available, apply_to_vacancy, close_browser_session
 
 # --- Конфигурация ---
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -216,6 +216,89 @@ def find_matched_keywords(name, description):
     return found
 
 
+# Паттерны "ловушек" в описаниях вакансий — вакансии с особыми требованиями к отклику
+# Если описание содержит такие фразы, автоотклик будет ПРОПУЩЕН (вакансия всё равно отправится в Telegram)
+DESCRIPTION_TRAP_PATTERNS = [
+    # Тестовые задания в описании
+    "тестовое задание",
+    "тестовое (step",
+    "step 0",
+    "step 1",
+    "пройти тест",
+    "выполни задание",
+    "выполните задание",
+    "пройди тест",
+    "пройдите тест",
+    # AI-фильтры
+    "ai-фильтр",
+    "ai фильтр",
+    "пройти через наш фильтр",
+    "проверка начинается прямо сейчас",
+    # Требования к сопроводительному письму
+    "при отклике укажи",
+    "при отклике укажите",
+    "при отклике напиши",
+    "при отклике напишите",
+    "в сопроводительном укажи",
+    "в сопроводительном укажите",
+    "в сопроводительном напиши",
+    "в сопроводительном напишите",
+    "в сопроводительном письме укажи",
+    "в сопроводительном письме укажите",
+    "в сопроводительном письме напиши",
+    "в сопроводительном письме напишите",
+    "в отклике укажи",
+    "в отклике укажите",
+    "в отклике напиши",
+    "в отклике напишите",
+    "напиши в отклике",
+    "напишите в отклике",
+    "пришли короткое сопроводительное",
+    "пришлите короткое сопроводительное",
+    # Кодовые слова / пароли
+    "кодовое слово",
+    "напиши слово",
+    "напишите слово",
+    "укажи слово",
+    "укажите слово",
+    "пароль для отклика",
+    # Специальные формы отклика
+    "заполни форму",
+    "заполните форму",
+    "заполни анкету",
+    "заполните анкету",
+    "откликайся через форму",
+    "откликайтесь через форму",
+    "отправь резюме на почту",
+    "отправьте резюме на почту",
+    "пришли резюме на",
+    "пришлите резюме на",
+]
+
+
+def detect_description_traps(description):
+    """
+    Анализирует описание вакансии на наличие "ловушек":
+    - тестовые задания в описании
+    - AI-фильтры
+    - специальные требования к сопроводительному письму
+    - кодовые слова
+
+    Возвращает список найденных ловушек (пустой = безопасно для автоотклика).
+    """
+    if not description:
+        return []
+
+    desc_lower = description.lower()
+    found_traps = []
+
+    for pattern in DESCRIPTION_TRAP_PATTERNS:
+        if pattern in desc_lower:
+            found_traps.append(pattern)
+
+    return found_traps
+
+
 def strip_html(text):
     if not text:
         return ""
@@ -237,7 +320,7 @@ def format_salary(salary):
     return " ".join(parts) + f" {currency}{gross}"
 
 
-def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=None, apply_status=None):
+def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=None, apply_status=None, traps=None):
     name = html.escape(vacancy.get("name", "Без названия"))
     employer = html.escape(vacancy.get("employer", {}).get("name", "Неизвестно"))
     area = html.escape(vacancy.get("area", {}).get("name", ""))
@@ -278,12 +361,32 @@ def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=Non
 
     lines.append(f'<a href="{url}">\U0001F517 Открыть вакансию</a>')
 
+    # Предупреждение о ловушках
+    if traps:
+        lines.append("")
+        lines.append("\u26a0\ufe0f <b>Особые условия отклика:</b>")
+        # Показываем до 3 найденных паттернов
+        for trap in traps[:3]:
+            lines.append(f"  \u2022 <i>{html.escape(trap)}</i>")
+        if len(traps) > 3:
+            lines.append(f"  \u2022 ...и ещё {len(traps) - 3}")
+
+    # Статус автоотклика
     if apply_status == "applied":
         lines.append("")
         lines.append("\u2705 <b>Автоотклик отправлен</b>")
     elif apply_status == "already_applied":
         lines.append("")
         lines.append("\u2611\ufe0f Уже откликались ранее")
+    elif apply_status == "skipped_trap":
+        lines.append("")
+        lines.append("\u270b Автоотклик пропущен (особые условия)")
+    elif apply_status == "skipped_limit":
+        lines.append("")
+        lines.append("\u23f8\ufe0f Лимит откликов за запуск исчерпан")
+    elif apply_status == "skipped_random":
+        lines.append("")
+        lines.append("\U0001f3b2 Автоотклик случайно пропущен (антидетект)")
     elif apply_status == "failed":
         lines.append("")
         lines.append("\u274c Автоотклик не удался")
@@ -475,23 +578,35 @@ def main():
             seen_fps[fp] = now
             continue
 
-        # 6) Автоотклик (если включён)
+        # 6) Проверяем описание на "ловушки" (тестовые задания, AI-фильтры и т.д.)
+        traps = detect_description_traps(description)
+        has_traps = len(traps) > 0
+
+        if has_traps:
+            logger.info(f"Traps detected in {vid}: {traps}")
+
+        # 7) Автоотклик (если включён и нет ловушек)
         apply_status = None
         if auto_apply:
-            vacancy_url = vacancy.get("alternate_url", "")
-            if vacancy_url:
-                apply_status = apply_to_vacancy(vacancy_url, name)
-                if apply_status == "applied":
-                    applied_count += 1
-                time.sleep(1)
+            if has_traps:
+                apply_status = "skipped_trap"
+                logger.info(f"Auto-apply SKIPPED (traps): {name}")
+            else:
+                vacancy_url = vacancy.get("alternate_url", "")
+                if vacancy_url:
+                    apply_status = apply_to_vacancy(vacancy_url, name)
+                    if apply_status == "applied":
+                        applied_count += 1
+                    time.sleep(1)
 
-        # 7) Отправляем в Telegram
+        # 8) Отправляем в Telegram
         vacancy_counter += 1
         msg = format_vacancy_message(
             vacancy, details,
             number=vacancy_counter,
             matched_keywords=matched,
             apply_status=apply_status,
+            traps=traps,
         )
         result = send_telegram_message(msg)
 
@@ -510,6 +625,10 @@ def main():
     cache["seen_ids"] = seen_ids
     cache["seen_fingerprints"] = seen_fps
     save_cache(cache)
+
+    # --- Закрываем сессию браузера ---
+    if auto_apply:
+        close_browser_session()
 
     logger.info(
         f"=== Done! Sent: {sent_count}, Applied: {applied_count} | "
