@@ -387,6 +387,9 @@ def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=Non
     elif apply_status == "skipped_random":
         lines.append("")
         lines.append("\U0001f3b2 Автоотклик случайно пропущен (антидетект)")
+    elif apply_status == "skipped_questions":
+        lines.append("")
+        lines.append("\u270b Автоотклик пропущен (доп. вопросы работодателя)")
     elif apply_status == "failed":
         lines.append("")
         lines.append("\u274c Автоотклик не удался")

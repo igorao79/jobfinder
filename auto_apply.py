@@ -635,7 +635,7 @@ def apply_to_vacancy(vacancy_url, vacancy_name=""):
     """
     Откликается на вакансию по URL с имитацией живого пользователя.
     Возвращает: "applied", "already_applied", "failed", "no_button",
-                "skipped_limit", "skipped_random"
+                "skipped_limit", "skipped_random", "skipped_questions"
     """
     global _applies_this_run
 
@@ -677,27 +677,36 @@ def apply_to_vacancy(vacancy_url, vacancy_name=""):
 
         if side == "main":
             logger.info("Side action: visiting main page")
-            page.goto("https://hh.ru", wait_until="domcontentloaded")
-            _human_delay(1.5, 3.0)
-            _close_cookie_banner(page)
-            _random_scroll(page)
-            _random_mouse_movement(page)
-            _human_delay(0.5, 2.0)
+            try:
+                page.goto("https://hh.ru", wait_until="domcontentloaded", timeout=15000)
+                _human_delay(1.5, 3.0)
+                _close_cookie_banner(page)
+                _random_scroll(page)
+                _random_mouse_movement(page)
+                _human_delay(0.5, 2.0)
+            except Exception:
+                logger.debug("Side action timeout, continuing")
 
         elif side == "responses":
             logger.info("Side action: checking responses")
-            page.goto("https://hh.ru/applicant/negotiations", wait_until="domcontentloaded")
-            _human_delay(2.0, 4.0)
-            _random_scroll(page)
-            _human_delay(1.0, 2.0)
+            try:
+                page.goto("https://hh.ru/applicant/negotiations", wait_until="domcontentloaded", timeout=15000)
+                _human_delay(2.0, 4.0)
+                _random_scroll(page)
+                _human_delay(1.0, 2.0)
+            except Exception:
+                logger.debug("Side action timeout, continuing")
 
         elif side == "search":
             logger.info("Side action: browsing search")
-            page.goto("https://hh.ru/search/vacancy?text=developer&area=1", wait_until="domcontentloaded")
-            _human_delay(1.5, 3.0)
-            _random_scroll(page)
-            _random_mouse_movement(page)
-            _human_delay(0.5, 1.5)
+            try:
+                page.goto("https://hh.ru/search/vacancy?text=developer&area=1", wait_until="domcontentloaded", timeout=15000)
+                _human_delay(1.5, 3.0)
+                _random_scroll(page)
+                _random_mouse_movement(page)
+                _human_delay(0.5, 1.5)
+            except Exception:
+                logger.debug("Side action timeout, continuing")
 
         # --- Переходим на страницу вакансии ---
         logger.info(f"Opening vacancy: {vacancy_url}")
@@ -766,25 +775,78 @@ def apply_to_vacancy(vacancy_url, vacancy_name=""):
         respond_btn.click()
         _human_delay(1.5, 3.0)
 
+        # --- Промежуточные модалки (другая страна, предупреждения) ---
+        intermediate_selectors = [
+            'button:has-text("Все равно откликнуться")',
+            '[data-qa="relocation-warning-confirm"]',
+        ]
+        for sel in intermediate_selectors:
+            try:
+                ibtn = page.locator(sel).first
+                if ibtn.is_visible(timeout=2000):
+                    logger.info(f"Intermediate modal detected, clicking: {sel}")
+                    _human_delay(0.5, 1.2)
+                    ibtn.click()
+                    _human_delay(1.5, 3.0)
+            except Exception:
+                pass
+
+        # --- Детектор вакансий с доп. вопросами работодателя ---
+        # После клика hh.ru может перенаправить на страницу с вопросами
+        # (анкета работодателя). Такие вакансии пропускаем.
+        try:
+            questions_indicators = [
+                'text="Ответьте на вопросы"',
+                'text="Для отклика необходимо ответить"',
+                'text="вопросов работодателя"',
+            ]
+            for sel in questions_indicators:
+                if page.locator(sel).first.is_visible(timeout=1500):
+                    logger.info(f"Vacancy has employer questions, skipping: {vacancy_name}")
+                    # Возвращаемся назад, не отвечаем на вопросы
+                    page.go_back()
+                    _human_delay(1.0, 2.0)
+                    return "skipped_questions"
+        except Exception:
+            pass
+
+        # --- Модалка выбора резюме — ищем именно "fullstack" ---
+        try:
+            resume_items = page.locator('[data-qa="resume-select-item"]')
+            if resume_items.first.is_visible(timeout=3000):
+                found_fullstack = False
+                count = resume_items.count()
+                logger.info(f"Found {count} resume(s) to choose from")
+
+                for i in range(count):
+                    item = resume_items.nth(i)
+                    item_text = item.inner_text().lower()
+                    logger.info(f"  Resume {i+1}: {item_text[:80]}")
+                    if "fullstack" in item_text or "full stack" in item_text or "full-stack" in item_text:
+                        _human_delay(0.5, 1.0)
+                        item.click()
+                        _human_delay(0.8, 1.5)
+                        found_fullstack = True
+                        logger.info(f"Selected fullstack resume (#{i+1})")
+                        break
+
+                if not found_fullstack:
+                    # Fallback: выбираем первое если fullstack не найден
+                    logger.warning("Fullstack resume not found, selecting first one")
+                    _human_delay(0.5, 1.0)
+                    resume_items.first.click()
+                    _human_delay(0.8, 1.5)
+        except Exception as e:
+            logger.debug(f"Resume selection: {e}")
+
         # --- Сопроводительное письмо ---
         _fill_cover_letter(page)
         _human_delay(0.5, 1.5)
-
-        # Модалка выбора резюме
-        try:
-            resume_item = page.locator('[data-qa="resume-select-item"]').first
-            if resume_item.is_visible(timeout=3000):
-                _human_delay(0.5, 1.0)
-                resume_item.click()
-                _human_delay(0.8, 1.5)
-        except Exception:
-            pass
 
         # --- Кнопка отправки ---
         submit_selectors = [
             '[data-qa="vacancy-response-submit-popup"]',
             '[data-qa="vacancy-response-letter-submit"]',
-            'button:has-text("Откликнуться")',
             'button[type="submit"]',
         ]
 
