@@ -16,6 +16,7 @@ import time
 import html
 import hashlib
 import re
+import random
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -418,6 +419,26 @@ def send_telegram_message(text):
         return None
 
 
+def edit_telegram_message(message_id, text):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
+    data = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "message_id": message_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        resp = requests.post(url, json=data, timeout=10)
+        result = resp.json()
+        if not result.get("ok"):
+            logger.error(f"Telegram edit error: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error editing Telegram message: {e}")
+        return None
+
+
 # ========== Дайджест ==========
 
 def send_daily_digest(cache):
@@ -588,7 +609,17 @@ def main():
         if has_traps:
             logger.info(f"Traps detected in {vid}: {traps}")
 
-        # 7) Автоотклик (если включён и нет ловушек)
+        # 7) Отправляем в Telegram (сразу, без статуса отклика)
+        vacancy_counter += 1
+        msg = format_vacancy_message(
+            vacancy, details,
+            number=vacancy_counter,
+            matched_keywords=matched,
+            traps=traps,
+        )
+        result = send_telegram_message(msg)
+
+        # 8) Автоотклик с задержкой 2-4 мин (имитация: человек читает вакансию в ТГ)
         apply_status = None
         if auto_apply:
             if has_traps:
@@ -597,21 +628,25 @@ def main():
             else:
                 vacancy_url = vacancy.get("alternate_url", "")
                 if vacancy_url:
+                    delay = random.randint(120, 240)
+                    logger.info(f"Auto-apply delay: {delay}s before applying to {name}")
+                    time.sleep(delay)
                     apply_status = apply_to_vacancy(vacancy_url, name)
                     if apply_status == "applied":
                         applied_count += 1
-                    time.sleep(1)
 
-        # 8) Отправляем в Telegram
-        vacancy_counter += 1
-        msg = format_vacancy_message(
-            vacancy, details,
-            number=vacancy_counter,
-            matched_keywords=matched,
-            apply_status=apply_status,
-            traps=traps,
-        )
-        result = send_telegram_message(msg)
+        # 9) Обновляем сообщение в ТГ со статусом отклика
+        if apply_status:
+            msg_updated = format_vacancy_message(
+                vacancy, details,
+                number=vacancy_counter,
+                matched_keywords=matched,
+                apply_status=apply_status,
+                traps=traps,
+            )
+            if result and result.get("ok"):
+                message_id = result["result"]["message_id"]
+                edit_telegram_message(message_id, msg_updated)
 
         if result and result.get("ok"):
             sent_count += 1
