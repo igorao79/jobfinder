@@ -2,17 +2,17 @@ name: Check Vacancies
 
 on:
   schedule:
-    # Каждые 5 минут
-    - cron: "*/5 * * * *"
+    # Каждые 30 минут (автоотклик занимает 4-5 мин на вакансию)
+    - cron: "*/30 * * * *"
   workflow_dispatch: # ручной запуск
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 120
     concurrency:
       group: vacancy-check
-      cancel-in-progress: true
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
