@@ -54,6 +54,25 @@ GitHub: https://github.com/igorao79
 С уважением,
 Горецкий Игорь""".strip()
 
+COVER_LETTER_FRONTEND = """Здравствуйте!
+
+Два года в коммерческой разработке. Основной фокус — frontend, но уверенно работаю и с бэкендом: строю АПИ, интегрирую внешние сервисы, деплою самостоятельно.
+Стек: React, Next.js, TypeScript, Node.js, Python.
+
+1. Serpium — приложение для автогенерации SEO-оптимизированных лендингов под Google Ads. Python + Next.js, интеграция внешних API, деплой в production. Самостоятельно — от архитектуры до запуска.
+
+2. Xivex — веб-приложение для анализа документов (PDF, DOCX, XLSX) с чатом по содержимому. Next.js, адаптивный UI, интеграция с API. Демо: https://xivex.vercel.app
+
+3. Convertaryao — конвертер файлов, работает локально без загрузки на сервер. Демо: https://convertaryao.vercel.app
+
+Из инструментов активно использую Cursor и Claude Code — они позволяют писать и проверять код быстрее, не жертвуя качеством. Слежу за кодом сам: ревьюю, тестирую, отвечаю за результат.
+
+Портфолио: https://portfolio-ten-plum-qg4uqxhosd.vercel.app
+GitHub: https://github.com/igorao79
+
+С уважением,
+Горецкий Игорь""".strip()
+
 
 # ========== Антидетект ==========
 
@@ -448,11 +467,14 @@ def _is_logged_in(page):
     return True
 
 
-def _fill_cover_letter(page):
+def _fill_cover_letter(page, cover_letter_text=None):
     """
     Находит поле сопроводительного письма и заполняет его.
     hh.ru может показать его в модалке или на странице отклика.
     """
+    if cover_letter_text is None:
+        cover_letter_text = COVER_LETTER
+
     letter_selectors = [
         '[data-qa="vacancy-response-popup-form-letter-input"]',
         '[data-qa="vacancy-response-letter-toggle"]',
@@ -491,7 +513,7 @@ def _fill_cover_letter(page):
                 # Печатаем сопроводительное посимвольно, но быстрее
                 # (это длинный текст, полностью посимвольно слишком долго)
                 # Разбиваем на абзацы и печатаем блоками с паузами
-                paragraphs = COVER_LETTER.split("\n\n")
+                paragraphs = cover_letter_text.split("\n\n")
                 for i, paragraph in enumerate(paragraphs):
                     lines = paragraph.split("\n")
                     for line in lines:
@@ -515,7 +537,7 @@ def _fill_cover_letter(page):
         if textarea.is_visible(timeout=2000):
             textarea.click()
             _human_delay(0.5, 1.0)
-            textarea.fill(COVER_LETTER)
+            textarea.fill(cover_letter_text)
             logger.info("Cover letter filled (fallback fill)")
             return True
     except Exception:
@@ -630,11 +652,12 @@ def close_browser_session():
     session["logged_in"] = False
 
 
-def apply_to_vacancy(vacancy_url, vacancy_name=""):
+def apply_to_vacancy(vacancy_url, vacancy_name="", cover_letter=None):
     """
     Откликается на вакансию по URL с имитацией живого пользователя.
+    cover_letter: текст сопроводительного (None = COVER_LETTER по умолчанию).
     Возвращает: "applied", "already_applied", "failed", "no_button",
-                "skipped_limit", "skipped_random", "skipped_questions"
+                "skipped_limit", "skipped_questions"
     """
     global _applies_this_run
 
@@ -836,7 +859,7 @@ def apply_to_vacancy(vacancy_url, vacancy_name=""):
             logger.debug(f"Resume selection: {e}")
 
         # --- Сопроводительное письмо ---
-        _fill_cover_letter(page)
+        _fill_cover_letter(page, cover_letter)
         _human_delay(0.5, 1.5)
 
         # --- Кнопка отправки ---

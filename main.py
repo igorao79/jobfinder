@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from auto_apply import is_auto_apply_available, apply_to_vacancy, close_browser_session
+from auto_apply import is_auto_apply_available, apply_to_vacancy, close_browser_session, COVER_LETTER_FRONTEND
 
 # --- Конфигурация ---
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -68,6 +68,9 @@ TITLE_BLACKLIST = [
     "data scientist",
     "data analyst",
     "product analyst",
+    # Мобильная разработка
+    "ios", "android", "мобильн", "mobile",
+    "flutter", "react native", "kotlin", "swift",
 ]
 
 # Работодатели в чёрном списке
@@ -76,8 +79,35 @@ EMPLOYER_BLACKLIST = [
     "mstech",
 ]
 
-# OR-запрос для hh.ru
+# OR-запрос для hh.ru (AI-вакансии)
 SEARCH_QUERY = " OR ".join(f'"{kw}"' for kw in KEYWORDS)
+
+# Второй поиск — фронтенд-вакансии (junior/middle, без AI-фильтров)
+FRONTEND_KEYWORDS = [
+    "frontend developer",
+    "frontend разработчик",
+    "фронтенд разработчик",
+    "front-end developer",
+    "front-end разработчик",
+    "junior frontend",
+    "middle frontend",
+    "react developer",
+    "react разработчик",
+    "junior react",
+    "middle react",
+    "next.js developer",
+    "nextjs developer",
+]
+
+FRONTEND_SEARCH_QUERY = " OR ".join(f'"{kw}"' for kw in FRONTEND_KEYWORDS)
+
+# Стоп-слова ТОЛЬКО для фронтенд-поиска (дополнительно к TITLE_BLACKLIST)
+FRONTEND_TITLE_BLACKLIST = [
+    "backend", "бэкенд", "бекенд",
+    "devops", "qa", "тестировщик",
+    "data engineer", "ml engineer",
+    "gamedev", "game developer",
+]
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -546,22 +576,42 @@ def main():
     tula_id = find_tula_area_id()
     logger.info(f"Tula area ID: {tula_id}")
 
-    # --- Собираем кандидатов ---
+    # --- Собираем кандидатов (AI-вакансии) ---
     candidates = {}
 
-    logger.info("Searching remote vacancies...")
+    logger.info("Searching remote AI vacancies...")
     for v in search_vacancies(SEARCH_QUERY, schedule="remote"):
-        candidates[v["id"]] = v
-    logger.info(f"Remote: {len(candidates)}")
+        candidates[v["id"]] = {"vacancy": v, "type": "ai"}
+    logger.info(f"Remote AI: {len(candidates)}")
 
     time.sleep(0.5)
 
     if tula_id:
-        logger.info("Searching Tula vacancies...")
+        logger.info("Searching Tula AI vacancies...")
         before = len(candidates)
         for v in search_vacancies(SEARCH_QUERY, area=tula_id):
-            candidates[v["id"]] = v
-        logger.info(f"Tula: +{len(candidates) - before}")
+            candidates[v["id"]] = {"vacancy": v, "type": "ai"}
+        logger.info(f"Tula AI: +{len(candidates) - before}")
+
+    time.sleep(0.5)
+
+    # --- Собираем кандидатов (Frontend-вакансии) ---
+    logger.info("Searching remote Frontend vacancies...")
+    before = len(candidates)
+    for v in search_vacancies(FRONTEND_SEARCH_QUERY, schedule="remote"):
+        if v["id"] not in candidates:  # не дублируем AI-вакансии
+            candidates[v["id"]] = {"vacancy": v, "type": "frontend"}
+    logger.info(f"Remote Frontend: +{len(candidates) - before}")
+
+    time.sleep(0.5)
+
+    if tula_id:
+        logger.info("Searching Tula Frontend vacancies...")
+        before2 = len(candidates)
+        for v in search_vacancies(FRONTEND_SEARCH_QUERY, area=tula_id):
+            if v["id"] not in candidates:
+                candidates[v["id"]] = {"vacancy": v, "type": "frontend"}
+        logger.info(f"Tula Frontend: +{len(candidates) - before2}")
 
     # --- Дневная статистика ---
     today_msk = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d")
@@ -587,7 +637,10 @@ def main():
     skipped_kw = 0
     skipped_grade = 0
 
-    for vid, vacancy in candidates.items():
+    for vid, entry in candidates.items():
+        vacancy = entry["vacancy"]
+        vacancy_type = entry["type"]  # "ai" or "frontend"
+
         # 1) Уже видели этот ID
         if vid in seen_ids:
             skipped_seen += 1
@@ -616,6 +669,15 @@ def main():
             logger.info(f"Skip {vid} — blacklisted employer: {employer_name}")
             continue
 
+        # 3.6) Доп. фильтр для frontend-вакансий
+        if vacancy_type == "frontend":
+            name_lower = name.lower()
+            if any(word in name_lower for word in FRONTEND_TITLE_BLACKLIST):
+                skipped_grade += 1
+                seen_ids[vid] = now
+                logger.info(f"Skip {vid} — frontend blacklist: {name}")
+                continue
+
         # 4) Контентный fingerprint (employer + название) — ловим перезаливы
         fp = vacancy_fingerprint(vacancy)
         if fp in seen_fps:
@@ -629,14 +691,22 @@ def main():
 
         description = strip_html(details.get("description", "")) if details else ""
 
-        # Ищем совпавшие ключевые слова
-        matched = find_matched_keywords(name, description)
-
-        if not matched:
-            skipped_kw += 1
-            seen_ids[vid] = now
-            seen_fps[fp] = now
-            continue
+        # Для AI-вакансий: ищем совпавшие AI-ключевые слова
+        # Для frontend-вакансий: совпадение по названию (уже прошли поиск hh.ru)
+        if vacancy_type == "ai":
+            matched = find_matched_keywords(name, description)
+            if not matched:
+                skipped_kw += 1
+                seen_ids[vid] = now
+                seen_fps[fp] = now
+                continue
+        else:
+            # Frontend: совпадение — название вакансии
+            matched = [vacancy_type.upper()]
+            for fkw in FRONTEND_KEYWORDS:
+                if fkw.lower() in name.lower():
+                    matched = [fkw]
+                    break
 
         # 6) Проверяем описание на "ловушки" (тестовые задания, AI-фильтры и т.д.)
         traps = detect_description_traps(description)
@@ -667,7 +737,10 @@ def main():
                     delay = random.randint(120, 240)
                     logger.info(f"Auto-apply delay: {delay}s before applying to {name}")
                     time.sleep(delay)
-                    apply_status = apply_to_vacancy(vacancy_url, name)
+
+                    # Выбираем cover letter по типу вакансии
+                    cl = COVER_LETTER_FRONTEND if vacancy_type == "frontend" else None
+                    apply_status = apply_to_vacancy(vacancy_url, name, cover_letter=cl)
                     if apply_status == "applied":
                         applied_count += 1
 
@@ -687,7 +760,7 @@ def main():
         if result and result.get("ok"):
             sent_count += 1
             stats["sent_today"] += 1
-            logger.info(f"Sent #{vacancy_counter}: {name}")
+            logger.info(f"Sent #{vacancy_counter}: [{vacancy_type}] {name}")
 
         seen_ids[vid] = now
         seen_fps[fp] = now
