@@ -121,6 +121,16 @@ FRONTEND_TITLE_BLACKLIST = [
     "devops", "qa", "тестировщик",
     "data engineer", "ml engineer",
     "gamedev", "game developer",
+    "3d", "визуализат", "моделир",
+    "unity", "unreal",
+]
+
+# Frontend-вакансия ДОЛЖНА содержать хотя бы одно из этих слов в названии
+FRONTEND_TITLE_REQUIRED = [
+    "frontend", "front-end", "front end", "фронтенд",
+    "react", "next.js", "nextjs",
+    "разработчик", "developer", "программист", "инженер",
+    "кодер", "coder",
 ]
 
 # Третий поиск — верстальщики (HTML/CSS, но именно разработка, не дизайн)
@@ -757,6 +767,12 @@ def main():
                 skipped_grade += 1
                 seen_ids[vid] = now
                 logger.info(f"Skip {vid} — frontend blacklist: {name}")
+                continue
+            # Название ДОЛЖНО содержать слово про фронтенд/разработку
+            if not any(word in name_lower for word in FRONTEND_TITLE_REQUIRED):
+                skipped_grade += 1
+                seen_ids[vid] = now
+                logger.info(f"Skip {vid} — frontend no dev keyword in title: {name}")
                 continue
 
         # 3.7) Доп. фильтр для верстальщиков (отсекаем дизайнеров + проверяем релевантность)
