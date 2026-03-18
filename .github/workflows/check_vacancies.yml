@@ -2,8 +2,8 @@ name: Check Vacancies
 
 on:
   schedule:
-    # Каждые 30 минут (автоотклик занимает 4-5 мин на вакансию)
-    - cron: "*/30 * * * *"
+    # Каждые 10 минут
+    - cron: "*/10 * * * *"
   workflow_dispatch: # ручной запуск
 
 jobs:
