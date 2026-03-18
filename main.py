@@ -64,6 +64,9 @@ TITLE_BLACKLIST = [
     "копирайтер", "copywriter",
     "контент", "content manager",
     "seo", "smm",
+    # Мобильная разработка
+    "ios", "android", "мобильн", "mobile",
+    "flutter", "react native", "swift", "kotlin",
     "business owner",
     "data scientist",
     "data analyst",
@@ -466,9 +469,6 @@ def format_vacancy_message(vacancy, details=None, number=0, matched_keywords=Non
     elif apply_status == "skipped_trap":
         lines.append("")
         lines.append("\u270b Автоотклик пропущен (особые условия)")
-    elif apply_status == "skipped_limit":
-        lines.append("")
-        lines.append("\u23f8\ufe0f Лимит откликов за запуск исчерпан")
     elif apply_status == "skipped_questions":
         lines.append("")
         lines.append("\u270b Автоотклик пропущен (доп. вопросы работодателя)")

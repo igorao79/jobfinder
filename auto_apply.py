@@ -6,7 +6,7 @@
 Антидетект-меры:
   - Переиспользование одной сессии браузера для всех вакансий в одном запуске
   - Случайные задержки между откликами (30-90 сек)
-  - Лимит откликов за запуск (MAX_APPLIES_PER_RUN)
+  - Пауза 4-5 мин между откликами
   - Рандомный viewport, user-agent, язык
   - Имитация чтения с разными сценариями
   - Случайный пропуск вакансий (иногда не откликаемся, хоть и можем)
@@ -28,13 +28,12 @@ HH_PHONE = os.environ.get("HH_PHONE", "")
 HH_PASSWORD = os.environ.get("HH_PASSWORD", "")
 AUTO_APPLY_ENABLED = os.environ.get("AUTO_APPLY_ENABLED", "false").lower() == "true"
 
-# Антидетект: лимиты
-MAX_APPLIES_PER_RUN = 3  # Максимум откликов за один запуск (каждые 5 мин)
-MIN_DELAY_BETWEEN_APPLIES = 25  # Минимальная пауза между откликами (сек)
-MAX_DELAY_BETWEEN_APPLIES = 75  # Максимальная пауза между откликами (сек)
+# Антидетект: паузы между откликами (4-5 мин)
+MIN_DELAY_BETWEEN_APPLIES = 240  # 4 мин
+MAX_DELAY_BETWEEN_APPLIES = 300  # 5 мин
 
-# Счётчик откликов в текущем запуске
-_applies_this_run = 0
+# Счётчик откликов (для пауз)
+_apply_count = 0
 
 COVER_LETTER = """Здравствуйте!
 
@@ -677,19 +676,12 @@ def apply_to_vacancy(vacancy_url, vacancy_name="", cover_letter=None):
     Откликается на вакансию по URL с имитацией живого пользователя.
     cover_letter: текст сопроводительного (None = COVER_LETTER по умолчанию).
     Возвращает: "applied", "already_applied", "failed", "no_button",
-                "skipped_limit", "skipped_questions"
+                "skipped_questions"
     """
-    global _applies_this_run
+    global _apply_count
 
-    # --- Антидетект: лимит откликов за запуск ---
-    if _applies_this_run >= MAX_APPLIES_PER_RUN:
-        logger.info(f"Apply limit reached ({MAX_APPLIES_PER_RUN}), skipping: {vacancy_name}")
-        return "skipped_limit"
-
-    # Случайный пропуск убран — откликаемся на всё что прошло фильтры
-
-    # --- Антидетект: пауза между откликами ---
-    if _applies_this_run > 0:
+    # --- Антидетект: пауза 4-5 мин между откликами ---
+    if _apply_count > 0:
         delay = random.uniform(MIN_DELAY_BETWEEN_APPLIES, MAX_DELAY_BETWEEN_APPLIES)
         logger.info(f"Anti-detect delay: {delay:.0f}s before next apply")
         time.sleep(delay)
@@ -934,8 +926,8 @@ def apply_to_vacancy(vacancy_url, vacancy_name="", cover_letter=None):
             _human_delay(0.5, 1.5)
 
         if result == "applied":
-            _applies_this_run += 1
-            logger.info(f"Applies this run: {_applies_this_run}/{MAX_APPLIES_PER_RUN}")
+            _apply_count += 1
+            logger.info(f"Applies this run: {_apply_count}")
 
     except Exception as e:
         logger.error(f"Error applying to {vacancy_name}: {e}")
