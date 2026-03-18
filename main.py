@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from auto_apply import is_auto_apply_available, apply_to_vacancy, close_browser_session, COVER_LETTER_FRONTEND
+from auto_apply import is_auto_apply_available, apply_to_vacancy, close_browser_session, COVER_LETTER_FRONTEND, COVER_LETTER_LAYOUT
 
 # --- Конфигурация ---
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -107,6 +107,29 @@ FRONTEND_TITLE_BLACKLIST = [
     "devops", "qa", "тестировщик",
     "data engineer", "ml engineer",
     "gamedev", "game developer",
+]
+
+# Третий поиск — верстальщики (HTML/CSS, но именно разработка, не дизайн)
+LAYOUT_KEYWORDS = [
+    "верстальщик",
+    "html верстальщик",
+    "html css верстальщик",
+    "html developer",
+    "верстка сайтов",
+    "junior верстальщик",
+    "middle верстальщик",
+]
+
+LAYOUT_SEARCH_QUERY = " OR ".join(f'"{kw}"' for kw in LAYOUT_KEYWORDS)
+
+# Стоп-слова для верстальщиков — отсекаем дизайнеров и нерелевантное
+LAYOUT_TITLE_BLACKLIST = [
+    "дизайн", "design",
+    "figma", "photoshop", "illustrator",
+    "ui/ux", "ux/ui", "ui ux", "ux ui",
+    "графич", "graphic",
+    "полиграф",
+    "email", "письм",
 ]
 
 logging.basicConfig(
@@ -613,6 +636,26 @@ def main():
                 candidates[v["id"]] = {"vacancy": v, "type": "frontend"}
         logger.info(f"Tula Frontend: +{len(candidates) - before2}")
 
+    time.sleep(0.5)
+
+    # --- Собираем кандидатов (Верстальщики) ---
+    logger.info("Searching remote Layout vacancies...")
+    before = len(candidates)
+    for v in search_vacancies(LAYOUT_SEARCH_QUERY, schedule="remote"):
+        if v["id"] not in candidates:
+            candidates[v["id"]] = {"vacancy": v, "type": "layout"}
+    logger.info(f"Remote Layout: +{len(candidates) - before}")
+
+    time.sleep(0.5)
+
+    if tula_id:
+        logger.info("Searching Tula Layout vacancies...")
+        before2 = len(candidates)
+        for v in search_vacancies(LAYOUT_SEARCH_QUERY, area=tula_id):
+            if v["id"] not in candidates:
+                candidates[v["id"]] = {"vacancy": v, "type": "layout"}
+        logger.info(f"Tula Layout: +{len(candidates) - before2}")
+
     # --- Дневная статистика ---
     today_msk = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d")
     stats = cache["daily_stats"]
@@ -678,6 +721,15 @@ def main():
                 logger.info(f"Skip {vid} — frontend blacklist: {name}")
                 continue
 
+        # 3.7) Доп. фильтр для верстальщиков (отсекаем дизайнеров)
+        if vacancy_type == "layout":
+            name_lower = name.lower()
+            if any(word in name_lower for word in LAYOUT_TITLE_BLACKLIST):
+                skipped_grade += 1
+                seen_ids[vid] = now
+                logger.info(f"Skip {vid} — layout blacklist (designer): {name}")
+                continue
+
         # 4) Контентный fingerprint (employer + название) — ловим перезаливы
         fp = vacancy_fingerprint(vacancy)
         if fp in seen_fps:
@@ -700,12 +752,18 @@ def main():
                 seen_ids[vid] = now
                 seen_fps[fp] = now
                 continue
-        else:
-            # Frontend: совпадение — название вакансии
+        elif vacancy_type == "frontend":
             matched = [vacancy_type.upper()]
             for fkw in FRONTEND_KEYWORDS:
                 if fkw.lower() in name.lower():
                     matched = [fkw]
+                    break
+        else:
+            # Layout
+            matched = ["Вёрстка"]
+            for lkw in LAYOUT_KEYWORDS:
+                if lkw.lower() in name.lower():
+                    matched = [lkw]
                     break
 
         # 6) Проверяем описание на "ловушки" (тестовые задания, AI-фильтры и т.д.)
@@ -739,7 +797,11 @@ def main():
                     time.sleep(delay)
 
                     # Выбираем cover letter по типу вакансии
-                    cl = COVER_LETTER_FRONTEND if vacancy_type == "frontend" else None
+                    cl = None  # default = AI cover letter
+                    if vacancy_type == "frontend":
+                        cl = COVER_LETTER_FRONTEND
+                    elif vacancy_type == "layout":
+                        cl = COVER_LETTER_LAYOUT
                     apply_status = apply_to_vacancy(vacancy_url, name, cover_letter=cl)
                     if apply_status == "applied":
                         applied_count += 1
