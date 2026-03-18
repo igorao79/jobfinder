@@ -82,6 +82,8 @@ TITLE_BLACKLIST = [
     "data scientist",
     "data analyst",
     "product analyst",
+    "operations assistant", "ассистент", "assistant",
+    "personal", "личный",
     # Мобильная разработка
     "ios", "android", "мобильн", "mobile",
     "flutter", "react native", "kotlin", "swift",
@@ -123,6 +125,7 @@ FRONTEND_TITLE_BLACKLIST = [
     "gamedev", "game developer",
     "3d", "визуализат", "моделир",
     "unity", "unreal",
+    "python", "питон",
 ]
 
 # Frontend-вакансия ДОЛЖНА содержать хотя бы одно из этих слов в названии
@@ -174,6 +177,8 @@ LAYOUT_TITLE_BLACKLIST = [
     "специалист", "assistant",
     "менеджер", "manager",
     "product",
+    "playable", "ads developer",
+    "game", "игр",
 ]
 
 # Layout-вакансия ДОЛЖНА содержать хотя бы одно из этих слов в названии
