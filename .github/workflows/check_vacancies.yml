@@ -9,6 +9,10 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: vacancy-check
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
