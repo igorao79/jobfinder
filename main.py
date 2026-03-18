@@ -142,7 +142,8 @@ LAYOUT_TITLE_BLACKLIST = [
     "дизайн", "design",
     "figma", "photoshop", "illustrator",
     "ui/ux", "ux/ui", "ui ux", "ux ui",
-    "графич", "graphic",
+    "графич", "график", "graphic",
+    "иллюстратор", "illustrat",
     # Полиграфия / издательство (НЕ веб-верстка)
     "полиграф", "типограф",
     "издател", "publishing",
@@ -159,6 +160,17 @@ LAYOUT_TITLE_BLACKLIST = [
     # Прочее нерелевантное
     "контент", "content",
     "smm", "seo",
+    "маркет", "market",
+    "специалист", "assistant",
+    "менеджер", "manager",
+    "product",
+]
+
+# Layout-вакансия ДОЛЖНА содержать хотя бы одно из этих слов в названии
+LAYOUT_TITLE_REQUIRED = [
+    "верстальщик", "верстка", "верстать",
+    "html", "css", "frontend", "front-end", "фронтенд",
+    "разработчик", "developer", "кодер", "coder",
 ]
 
 logging.basicConfig(
@@ -747,13 +759,19 @@ def main():
                 logger.info(f"Skip {vid} — frontend blacklist: {name}")
                 continue
 
-        # 3.7) Доп. фильтр для верстальщиков (отсекаем дизайнеров)
+        # 3.7) Доп. фильтр для верстальщиков (отсекаем дизайнеров + проверяем релевантность)
         if vacancy_type == "layout":
             name_lower = name.lower()
             if any(word in name_lower for word in LAYOUT_TITLE_BLACKLIST):
                 skipped_grade += 1
                 seen_ids[vid] = now
-                logger.info(f"Skip {vid} — layout blacklist (designer): {name}")
+                logger.info(f"Skip {vid} — layout blacklist: {name}")
+                continue
+            # Название ДОЛЖНО содержать слово про верстку/разработку
+            if not any(word in name_lower for word in LAYOUT_TITLE_REQUIRED):
+                skipped_grade += 1
+                seen_ids[vid] = now
+                logger.info(f"Skip {vid} — layout no dev keyword in title: {name}")
                 continue
 
         # 4) Контентный fingerprint (employer + название) — ловим перезаливы
