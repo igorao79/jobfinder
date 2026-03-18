@@ -74,6 +74,9 @@ TITLE_BLACKLIST = [
     "c#", ".net", "c++",
     "ruby", "rails",
     "1с", "1c",
+    # Редакторы / издательство
+    "редактор", "editor",
+    "корректор", "издател", "журнал",
     "business owner",
     "data scientist",
     "data analyst",
@@ -132,14 +135,29 @@ LAYOUT_KEYWORDS = [
 
 LAYOUT_SEARCH_QUERY = " OR ".join(f'"{kw}"' for kw in LAYOUT_KEYWORDS)
 
-# Стоп-слова для верстальщиков — отсекаем дизайнеров и нерелевантное
+# Стоп-слова для верстальщиков — отсекаем дизайнеров, полиграфию, редакторов
 LAYOUT_TITLE_BLACKLIST = [
+    # Дизайн
     "дизайн", "design",
     "figma", "photoshop", "illustrator",
     "ui/ux", "ux/ui", "ui ux", "ux ui",
     "графич", "graphic",
-    "полиграф",
+    # Полиграфия / издательство (НЕ веб-верстка)
+    "полиграф", "типограф",
+    "издател", "publishing",
+    "журнал", "magazine",
+    "газет", "newspaper",
+    "книг", "book",
+    "печат",
+    # Редакторы
+    "редактор", "editor",
+    "корректор", "proofreader",
+    "копирайт", "copywriter",
+    # Email
     "email", "письм",
+    # Прочее нерелевантное
+    "контент", "content",
+    "smm", "seo",
 ]
 
 logging.basicConfig(
