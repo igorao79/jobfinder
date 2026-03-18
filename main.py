@@ -67,6 +67,13 @@ TITLE_BLACKLIST = [
     # Мобильная разработка
     "ios", "android", "мобильн", "mobile",
     "flutter", "react native", "swift", "kotlin",
+    # Неподходящие фреймворки/языки
+    "nuxt", "vue", "angular",
+    "java", "golang", "go developer", "go разработчик",
+    "php", "laravel", "symfony",
+    "c#", ".net", "c++",
+    "ruby", "rails",
+    "1с", "1c",
     "business owner",
     "data scientist",
     "data analyst",
