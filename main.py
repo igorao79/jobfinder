@@ -113,6 +113,21 @@ FRONTEND_KEYWORDS = [
     "middle react",
     "next.js developer",
     "nextjs developer",
+    "typescript developer",
+    "typescript разработчик",
+    "javascript developer",
+    "javascript разработчик",
+    "js developer",
+    "js разработчик",
+    "веб-разработчик",
+    "веб разработчик",
+    "web developer",
+    "web разработчик",
+    "fullstack разработчик",
+    "full stack разработчик",
+    "full-stack разработчик",
+    "fullstack developer",
+    "full stack developer",
 ]
 
 FRONTEND_SEARCH_QUERY = " OR ".join(f'"{kw}"' for kw in FRONTEND_KEYWORDS)
@@ -271,7 +286,7 @@ def search_vacancies(text, schedule=None, area=None):
         "per_page": 100,
         "page": 0,
         "order_by": "publication_time",
-        "period": 1,
+        "period": 3,
     }
     if schedule:
         params["schedule"] = schedule
