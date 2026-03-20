@@ -259,6 +259,17 @@ def vacancy_fingerprint(vacancy):
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+def vacancy_name_fingerprint(vacancy):
+    """
+    Хэш: название компании + название вакансии (без employer_id).
+    Ловит дубли от компаний с разными юрлицами (разные employer_id).
+    """
+    employer_name = vacancy.get("employer", {}).get("name", "").lower().strip()
+    name = vacancy.get("name", "").lower().strip()
+    raw = f"{employer_name}::{name}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
 # ========== hh.ru API ==========
 
 def find_tula_area_id():
@@ -812,7 +823,8 @@ def main():
 
         # 4) Контентный fingerprint (employer + название) — ловим перезаливы
         fp = vacancy_fingerprint(vacancy)
-        if fp in seen_fps:
+        nfp = vacancy_name_fingerprint(vacancy)
+        if fp in seen_fps or nfp in seen_fps:
             skipped_fp += 1
             seen_ids[vid] = now
             continue
@@ -831,6 +843,7 @@ def main():
                 skipped_kw += 1
                 seen_ids[vid] = now
                 seen_fps[fp] = now
+                seen_fps[nfp] = now
                 continue
         elif vacancy_type == "frontend":
             matched = [vacancy_type.upper()]
@@ -906,6 +919,7 @@ def main():
 
         seen_ids[vid] = now
         seen_fps[fp] = now
+        seen_fps[nfp] = now
         time.sleep(0.5)
 
     # --- Сохраняем кэш ---
