@@ -98,6 +98,13 @@ TITLE_BLACKLIST = [
     "product analyst",
     "operations assistant", "ассистент", "assistant",
     "personal", "личный",
+    # Не разработка
+    "видеомонтаж", "монтажер", "видеограф",
+    "сценарист", "screenwriter",
+    "qa", "тестировщик", "тестирование",
+    "data engineer",
+    "devops", "sre",
+    "unity", "unreal", "gamedev", "game developer",
     # Мобильная разработка (дубль убран, оставлен для чистоты)
     # Образование / преподавание
     "преподаватель", "учитель", "репетитор", "тренер", "trainer",
@@ -162,6 +169,9 @@ FRONTEND_TITLE_BLACKLIST = [
     "3d", "визуализат", "моделир",
     "unity", "unreal",
     "python", "питон",
+    "tilda", "тильда",
+    "svelte",
+    "go ", "golang",
 ]
 
 # Frontend-вакансия ДОЛЖНА содержать хотя бы одно из этих слов в названии
@@ -215,6 +225,8 @@ LAYOUT_TITLE_BLACKLIST = [
     "product",
     "playable", "ads developer",
     "game", "игр",
+    "word", "документ",
+    "tilda", "тильда",
 ]
 
 # Layout-вакансия ДОЛЖНА содержать хотя бы одно из этих слов в названии
