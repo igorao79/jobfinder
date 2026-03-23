@@ -86,6 +86,7 @@ TITLE_BLACKLIST = [
     "php", "laravel", "symfony",
     "c#", ".net", "c++",
     "ruby", "rails",
+    "rust",
     "1с", "1c",
     "wordpress", "битрикс", "bitrix", "drupal", "joomla", "opencart",
     # Редакторы / издательство
