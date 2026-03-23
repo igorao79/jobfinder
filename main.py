@@ -76,7 +76,7 @@ TITLE_BLACKLIST = [
     "sales", "продажи",
     "копирайтер", "copywriter",
     "контент", "content manager",
-    "seo", "smm",
+    "seo", "smm", "aso",
     # Мобильная разработка
     "ios", "android", "мобильн", "mobile",
     "flutter", "react native", "swift", "kotlin",
@@ -107,6 +107,8 @@ TITLE_BLACKLIST = [
 EMPLOYER_BLACKLIST = [
     "mstech l.l.c-fz",
     "mstech",
+    "futuretoday",
+    "future today",
 ]
 
 # OR-запрос для hh.ru (AI-вакансии)
