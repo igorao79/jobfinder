@@ -98,9 +98,14 @@ TITLE_BLACKLIST = [
     "product analyst",
     "operations assistant", "ассистент", "assistant",
     "personal", "личный",
-    # Мобильная разработка
-    "ios", "android", "мобильн", "mobile",
-    "flutter", "react native", "kotlin", "swift",
+    # Мобильная разработка (дубль убран, оставлен для чистоты)
+    # Образование / преподавание
+    "преподаватель", "учитель", "репетитор", "тренер", "trainer",
+    "логистик", "логист",
+    "бухгалтер", "юрист", "lawyer",
+    "оператор", "operator",
+    "водитель", "курьер",
+    "охран",
 ]
 
 # Работодатели в чёрном списке
@@ -862,18 +867,46 @@ def main():
                 seen_fps[nfp] = now
                 continue
         elif vacancy_type == "frontend":
-            matched = [vacancy_type.upper()]
+            # Проверяем что ключевое слово РЕАЛЬНО есть в названии или описании
+            combined = (name + " " + description).lower()
+            matched = []
             for fkw in FRONTEND_KEYWORDS:
-                if fkw.lower() in name.lower():
-                    matched = [fkw]
+                if fkw.lower() in combined:
+                    matched.append(fkw)
                     break
+            if not matched:
+                # Fallback: проверяем required слова в названии
+                for rw in FRONTEND_TITLE_REQUIRED:
+                    if rw in name.lower():
+                        matched.append(rw)
+                        break
+            if not matched:
+                skipped_kw += 1
+                seen_ids[vid] = now
+                seen_fps[fp] = now
+                seen_fps[nfp] = now
+                logger.info(f"Skip {vid} — no frontend keyword found: {name}")
+                continue
         else:
-            # Layout
-            matched = ["Вёрстка"]
+            # Layout: проверяем что ключевое слово РЕАЛЬНО есть
+            combined = (name + " " + description).lower()
+            matched = []
             for lkw in LAYOUT_KEYWORDS:
-                if lkw.lower() in name.lower():
-                    matched = [lkw]
+                if lkw.lower() in combined:
+                    matched.append(lkw)
                     break
+            if not matched:
+                for rw in LAYOUT_TITLE_REQUIRED:
+                    if rw in name.lower():
+                        matched.append(rw)
+                        break
+            if not matched:
+                skipped_kw += 1
+                seen_ids[vid] = now
+                seen_fps[fp] = now
+                seen_fps[nfp] = now
+                logger.info(f"Skip {vid} — no layout keyword found: {name}")
+                continue
 
         # 6) Проверяем описание на "ловушки" (тестовые задания, AI-фильтры и т.д.)
         traps = detect_description_traps(description)
