@@ -40,6 +40,19 @@ KEYWORDS = [
     "вайб кодер",
     "Cursor",
     "Claude Code",
+    "AI engineer",
+    "AI разработчик",
+    "AI-разработчик",
+    "искусственный интеллект",
+    "LLM developer",
+    "LLM разработчик",
+    "LLM engineer",
+    "промпт инженер",
+    "prompt engineer",
+    "AI агент",
+    "AI-агент",
+    "vibe coding",
+    "вайб кодинг",
 ]
 
 # Стоп-слова в названии вакансии (senior, lead, нерелевантные роли)
