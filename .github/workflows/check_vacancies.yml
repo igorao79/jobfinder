@@ -42,6 +42,7 @@ jobs:
           HH_PHONE: ${{ secrets.HH_PHONE }}
           HH_PASSWORD: ${{ secrets.HH_PASSWORD }}
           AUTO_APPLY_ENABLED: ${{ secrets.AUTO_APPLY_ENABLED }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python main.py
 
       - name: Save seen IDs cache

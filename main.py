@@ -24,6 +24,59 @@ import requests
 
 from auto_apply import is_auto_apply_available, apply_to_vacancy, close_browser_session, COVER_LETTER_FRONTEND, COVER_LETTER_LAYOUT
 
+# --- Groq AI фильтр ---
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+
+def ai_filter_vacancy(title, employer, description_snippet, vacancy_type):
+    """
+    Проверяет через Groq LLM, подходит ли вакансия.
+    Возвращает (True, причина) если подходит, (False, причина) если нет.
+    """
+    if not GROQ_API_KEY:
+        return True, "no_api_key"
+
+    profile = {
+        "ai": "AI/LLM разработчик. Стек: Python, Node.js, Next.js, TypeScript. Опыт с Claude Code, Cursor, MCP, LLM-агентами. НЕ подходят: менеджеры, аналитики, дизайнеры, QA, DevOps, data engineer, мобильная разработка, gamedev, видеомонтаж, сценаристы, продажи, маркетинг, HR, преподавание, логистика, недвижимость, любые нетехнические роли.",
+        "frontend": "Frontend/Fullstack разработчик. Стек: React, Next.js, TypeScript, Node.js. НЕ подходят: Vue, Angular, Nuxt, Svelte, Go, Python-only, PHP, Java, C#, Ruby, Rust, мобильная разработка, Tilda, WordPress, QA, дизайн, менеджмент, аналитика, любые нетехнические роли.",
+        "layout": "HTML/CSS верстальщик (веб). Стек: HTML5, CSS3, JavaScript, React, Tailwind. НЕ подходят: верстка документов/Word/полиграфия, дизайн, иллюстрация, редактура, маркетинг, Tilda, любые нетехнические роли.",
+    }
+
+    prompt = f"""Ты — фильтр вакансий. Определи, подходит ли вакансия кандидату.
+
+Профиль кандидата: {profile.get(vacancy_type, profile['frontend'])}
+
+Вакансия:
+Название: {title}
+Компания: {employer}
+Описание (начало): {description_snippet[:500]}
+
+Ответь СТРОГО одним словом: ДА или НЕТ
+Если есть малейшее сомнение что это нерелевантная вакансия — отвечай НЕТ."""
+
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 5,
+                "temperature": 0,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        answer = resp.json()["choices"][0]["message"]["content"].strip().upper()
+        is_relevant = "ДА" in answer
+        logger.info(f"AI filter: {'PASS' if is_relevant else 'BLOCK'} — {title} [{answer}]")
+        return is_relevant, answer
+    except Exception as e:
+        logger.warning(f"AI filter error: {e}, passing vacancy through")
+        return True, f"error: {e}"
+
 # --- Конфигурация ---
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
@@ -927,7 +980,18 @@ def main():
                 logger.info(f"Skip {vid} — no layout keyword found: {name}")
                 continue
 
-        # 6) Проверяем описание на "ловушки" (тестовые задания, AI-фильтры и т.д.)
+        # 6) AI-фильтр (Groq) — финальная проверка релевантности
+        employer_name = vacancy.get("employer", {}).get("name", "")
+        is_relevant, ai_reason = ai_filter_vacancy(name, employer_name, description, vacancy_type)
+        if not is_relevant:
+            skipped_kw += 1
+            seen_ids[vid] = now
+            seen_fps[fp] = now
+            seen_fps[nfp] = now
+            logger.info(f"Skip {vid} — AI filter blocked: {name} [{ai_reason}]")
+            continue
+
+        # 7) Проверяем описание на "ловушки" (тестовые задания, AI-фильтры и т.д.)
         traps = detect_description_traps(description)
         has_traps = len(traps) > 0
 
