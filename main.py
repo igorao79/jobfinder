@@ -53,29 +53,40 @@ def ai_filter_vacancy(title, employer, description_snippet, vacancy_type):
 Ответь СТРОГО одним словом: ДА или НЕТ
 Если есть малейшее сомнение что это нерелевантная вакансия — отвечай НЕТ."""
 
-    try:
-        resp = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "llama-3.3-70b-versatile",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 5,
-                "temperature": 0,
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
-        answer = resp.json()["choices"][0]["message"]["content"].strip().upper()
-        is_relevant = "ДА" in answer
-        logger.info(f"AI filter: {'PASS' if is_relevant else 'BLOCK'} — {title} [{answer}]")
-        return is_relevant, answer
-    except Exception as e:
-        logger.warning(f"AI filter error: {e}, passing vacancy through")
-        return True, f"error: {e}"
+    for attempt in range(3):
+        try:
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 5,
+                    "temperature": 0,
+                },
+                timeout=10,
+            )
+            if resp.status_code == 429:
+                wait = 3 * (attempt + 1)
+                logger.info(f"AI filter rate limited, waiting {wait}s...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            answer = resp.json()["choices"][0]["message"]["content"].strip().upper()
+            is_relevant = "ДА" in answer
+            logger.info(f"AI filter: {'PASS' if is_relevant else 'BLOCK'} — {title} [{answer}]")
+            return is_relevant, answer
+        except Exception as e:
+            if "429" in str(e) and attempt < 2:
+                time.sleep(3 * (attempt + 1))
+                continue
+            logger.warning(f"AI filter error: {e}, BLOCKING vacancy for safety")
+            return False, f"error: {e}"
+    logger.warning(f"AI filter: all retries failed for {title}, BLOCKING")
+    return False, "retries_exhausted"
 
 # --- Конфигурация ---
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -158,6 +169,9 @@ TITLE_BLACKLIST = [
     "data engineer",
     "devops", "sre",
     "unity", "unreal", "gamedev", "game developer",
+    "nlp", "ml engineer", "ml-инженер", "machine learning",
+    "креатор", "creator", "контент-мейкер",
+    "забот", "поддержк", "support",
     "стажер", "стажёр", "intern",
     "недвижим", "риелтор", "риэлтор",
     "курьер", "водитель", "охран",
