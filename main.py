@@ -706,6 +706,39 @@ def edit_telegram_message(message_id, text):
         return None
 
 
+# ========== Команды из Telegram ==========
+
+def check_telegram_commands():
+    """
+    Проверяет последние сообщения в ТГ-канале на наличие команд /stop и /start.
+    Возвращает: "running", "stopped"
+    """
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+    try:
+        resp = requests.get(url, params={"offset": -20, "limit": 20}, timeout=10)
+        result = resp.json()
+        if not result.get("ok"):
+            return "running"
+
+        updates = result.get("result", [])
+        last_command = None
+
+        for update in updates:
+            msg = update.get("message") or update.get("channel_post") or {}
+            text = msg.get("text", "").strip().lower()
+            if text in ("/stop", "/start"):
+                last_command = text
+
+        if last_command == "/stop":
+            logger.info("Bot STOPPED by /stop command in Telegram")
+            return "stopped"
+
+        return "running"
+    except Exception as e:
+        logger.warning(f"Error checking Telegram commands: {e}")
+        return "running"
+
+
 # ========== Дайджест ==========
 
 def send_daily_digest(cache):
@@ -764,6 +797,12 @@ def main():
         return
 
     logger.info("=== Starting vacancy check ===")
+
+    # Проверяем команды из Telegram
+    bot_status = check_telegram_commands()
+    if bot_status == "stopped":
+        logger.info("Bot is paused (/stop). Skipping this run.")
+        return
 
     cache = load_cache()
     init_time = cache["init_time"]
