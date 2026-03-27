@@ -708,35 +708,37 @@ def edit_telegram_message(message_id, text):
 
 # ========== Команды из Telegram ==========
 
-def check_telegram_commands():
+def check_telegram_commands(cache):
     """
     Проверяет последние сообщения в ТГ-канале на наличие команд /stop и /start.
+    Сохраняет состояние в кэш (переживает перезапуски и 24ч лимит getUpdates).
     Возвращает: "running", "stopped"
     """
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
     try:
         resp = requests.get(url, params={"offset": -20, "limit": 20}, timeout=10)
         result = resp.json()
-        if not result.get("ok"):
-            return "running"
-
-        updates = result.get("result", [])
-        last_command = None
-
-        for update in updates:
-            msg = update.get("message") or update.get("channel_post") or {}
-            text = msg.get("text", "").strip().lower()
-            if text in ("/stop", "/start"):
-                last_command = text
-
-        if last_command == "/stop":
-            logger.info("Bot STOPPED by /stop command in Telegram")
-            return "stopped"
-
-        return "running"
+        if result.get("ok"):
+            updates = result.get("result", [])
+            for update in updates:
+                msg = update.get("message") or update.get("channel_post") or {}
+                text = msg.get("text", "").strip().lower()
+                if text == "/stop":
+                    cache["bot_paused"] = True
+                    save_cache(cache)
+                    logger.info("Bot STOPPED by /stop command")
+                elif text == "/start":
+                    cache["bot_paused"] = False
+                    save_cache(cache)
+                    logger.info("Bot RESUMED by /start command")
     except Exception as e:
         logger.warning(f"Error checking Telegram commands: {e}")
-        return "running"
+
+    # Проверяем сохранённое состояние
+    if cache.get("bot_paused", False):
+        logger.info("Bot is paused (cached state). Send /start to resume.")
+        return "stopped"
+    return "running"
 
 
 # ========== Дайджест ==========
@@ -798,13 +800,13 @@ def main():
 
     logger.info("=== Starting vacancy check ===")
 
+    cache = load_cache()
+
     # Проверяем команды из Telegram
-    bot_status = check_telegram_commands()
+    bot_status = check_telegram_commands(cache)
     if bot_status == "stopped":
         logger.info("Bot is paused (/stop). Skipping this run.")
         return
-
-    cache = load_cache()
     init_time = cache["init_time"]
     vacancy_counter = cache["vacancy_counter"]
     seen_ids = cache["seen_ids"]
