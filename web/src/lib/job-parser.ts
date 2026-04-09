@@ -8,7 +8,67 @@ export interface JobData {
   keywords: string[];
 }
 
+/**
+ * Parse a job URL. Supports HH.ru via official API, falls back to HTML scraping for other sites.
+ */
 export async function parseJobUrl(url: string): Promise<JobData> {
+  const hhMatch = url.match(/hh\.ru\/vacancy\/(\d+)/);
+  if (hhMatch) {
+    return parseHHVacancy(hhMatch[1]);
+  }
+  return parseGenericUrl(url);
+}
+
+/** Parse HH.ru vacancy via official API (no auth required) */
+async function parseHHVacancy(vacancyId: string): Promise<JobData> {
+  const res = await fetch(`https://api.hh.ru/vacancies/${vacancyId}`, {
+    headers: { "User-Agent": "JobFinder/1.0 (cover-letter-generator)" },
+  });
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error("Вакансия не найдена. Проверьте ссылку.");
+    }
+    throw new Error(`Ошибка API HH.ru: ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  // Strip HTML tags from description
+  const $ = cheerio.load(data.description || "");
+  const descriptionText = $.text().trim();
+
+  // Extract list items as requirements
+  const requirements: string[] = [];
+  $("li").each((_, el) => {
+    const text = cheerio.load(el).text().trim();
+    if (text.length > 10 && text.length < 300) {
+      requirements.push(text);
+    }
+  });
+
+  // Build keywords from key_skills + description
+  const keywords: string[] = [];
+  if (data.key_skills) {
+    for (const skill of data.key_skills) {
+      keywords.push(skill.name.toLowerCase());
+    }
+  }
+  // Add extracted keywords from description
+  keywords.push(...extractKeywords(descriptionText));
+  const uniqueKeywords = [...new Set(keywords)].slice(0, 30);
+
+  return {
+    title: data.name || "Без названия",
+    company: data.employer?.name || "",
+    description: descriptionText.slice(0, 5000),
+    requirements,
+    keywords: uniqueKeywords,
+  };
+}
+
+/** Fallback: scrape HTML for non-HH.ru job sites */
+async function parseGenericUrl(url: string): Promise<JobData> {
   const res = await fetch(url, {
     headers: {
       "User-Agent":
@@ -17,38 +77,20 @@ export async function parseJobUrl(url: string): Promise<JobData> {
   });
 
   if (!res.ok) {
-    throw new Error(`Не удалось загрузить страницу вакансии: ${res.status}`);
+    throw new Error(`Не удалось загрузить страницу: ${res.status}`);
   }
 
   const html = await res.text();
   const $ = cheerio.load(html);
-
-  // Remove scripts and styles
   $("script, style, noscript").remove();
 
-  // Try common selectors for job title
-  const title =
-    $('h1[data-qa="vacancy-title"]').text().trim() ||
-    $("h1").first().text().trim() ||
-    "Без названия";
-
-  // Try common selectors for company name
+  const title = $("h1").first().text().trim() || "Без названия";
   const company =
-    $('[data-qa="vacancy-company-name"]').text().trim() ||
-    $(".company-name").text().trim() ||
-    $('meta[property="og:site_name"]').attr("content") ||
-    "";
+    $('meta[property="og:site_name"]').attr("content") || "";
 
-  // Get main content text
-  const descriptionEl =
-    $('[data-qa="vacancy-description"]') ||
-    $(".vacancy-description") ||
-    $("article") ||
-    $("main");
-
+  const descriptionEl = $("article").length ? $("article") : $("main").length ? $("main") : $("body");
   const description = descriptionEl.text().trim().slice(0, 5000);
 
-  // Extract list items as requirements
   const requirements: string[] = [];
   descriptionEl.find("li").each((_, el) => {
     const text = $(el).text().trim();
@@ -57,16 +99,18 @@ export async function parseJobUrl(url: string): Promise<JobData> {
     }
   });
 
-  // Extract keywords from description
-  const keywords = extractKeywords(description);
-
-  return { title, company, description, requirements, keywords };
+  return {
+    title,
+    company,
+    description,
+    requirements,
+    keywords: extractKeywords(description),
+  };
 }
 
 function extractKeywords(text: string): string[] {
   const lower = text.toLowerCase();
 
-  // Common tech/skill keywords
   const techPatterns = [
     /\b(?:javascript|typescript|python|java|c\+\+|go|rust|ruby|php|swift|kotlin)\b/gi,
     /\b(?:react|vue|angular|next\.?js|node\.?js|express|django|flask|spring)\b/gi,
@@ -84,7 +128,6 @@ function extractKeywords(text: string): string[] {
     }
   }
 
-  // Also extract capitalized words that might be technologies
   const capitalizedWords = text.match(/\b[A-Z][a-zA-Z+#.]{2,15}\b/g);
   if (capitalizedWords) {
     capitalizedWords
