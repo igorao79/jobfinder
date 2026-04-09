@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeroDemo } from "@/components/hero-demo";
 
 const steps = [
   {
@@ -53,7 +54,8 @@ export default function LandingPage() {
         <div className="absolute top-1/2 right-[10%] w-[1px] h-32 bg-white/10 -translate-y-1/2 hidden lg:block" />
 
         <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-24 md:py-36 lg:py-44">
-          <div className="max-w-2xl">
+          <div className="flex items-center justify-between gap-12">
+          <div className="max-w-2xl flex-shrink-0">
             <div className="animate-fade-up">
               <span className="inline-flex items-center gap-2 text-white/60 text-[13px] font-semibold tracking-widest uppercase mb-6">
                 <span className="w-8 h-[1px] bg-white/40" />
@@ -103,6 +105,12 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Interactive demo */}
+          <div className="hidden lg:flex items-center justify-center animate-fade-up delay-400">
+            <HeroDemo />
+          </div>
           </div>
         </div>
       </section>
