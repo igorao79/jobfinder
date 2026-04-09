@@ -48,13 +48,13 @@ export async function POST(request: Request) {
     // 3. Generate cover letter
     let letter = await generateCoverLetter(resumeText, jobData);
 
-    // 4. ATS check
-    let atsResult = checkATS(letter, jobData);
+    // 4. ATS check (LLM-powered + local)
+    let atsResult = await checkATS(letter, jobData);
 
     // 5. If score < 70, try to improve once
     if (atsResult.score < 70 && atsResult.feedback.length > 0) {
       letter = await improveCoverLetter(letter, atsResult.feedback, jobData);
-      atsResult = checkATS(letter, jobData);
+      atsResult = await checkATS(letter, jobData);
     }
 
     // 6. Save to database
@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       jobTitle: jobData.title,
       company: jobData.company,
       feedback: atsResult.feedback,
+      atsDetails: atsResult.details ?? null,
     });
   } catch (err: unknown) {
     console.error("Cover letter generation error:", err);

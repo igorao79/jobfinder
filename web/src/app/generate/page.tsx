@@ -3,12 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 
+interface ATSDetails {
+  keywordScore: number;
+  structureScore: number;
+  relevanceScore: number;
+  toneScore: number;
+  missingKeywords: string[];
+}
+
 interface GenerateResult {
   content: string;
   atsScore: number;
   jobTitle: string | null;
   company: string | null;
   feedback?: string[];
+  atsDetails?: ATSDetails | null;
 }
 
 export default function GeneratePage() {
@@ -173,6 +182,76 @@ export default function GeneratePage() {
               </span>
             )}
           </div>
+
+          {/* ATS Details */}
+          {result.atsDetails && (
+            <div className="card p-6">
+              <h3 className="font-display text-sm font-bold text-[var(--fg)] mb-4 uppercase tracking-wider">
+                Детальный ATS-анализ
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: "Ключевые слова", value: result.atsDetails.keywordScore },
+                  { label: "Структура", value: result.atsDetails.structureScore },
+                  { label: "Релевантность", value: result.atsDetails.relevanceScore },
+                  { label: "Тон письма", value: result.atsDetails.toneScore },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[13px] text-[var(--fg-muted)]">{item.label}</span>
+                      <span className={`text-[13px] font-bold ${
+                        item.value >= 80 ? "text-[var(--success)]" : item.value >= 60 ? "text-[var(--warning)]" : "text-[var(--primary)]"
+                      }`}>
+                        {item.value}%
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          item.value >= 80 ? "bg-[var(--success)]" : item.value >= 60 ? "bg-[var(--warning)]" : "bg-[var(--primary)]"
+                        }`}
+                        style={{ width: `${item.value}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {result.atsDetails.missingKeywords.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                  <span className="text-[12px] font-semibold text-[var(--fg-subtle)] uppercase tracking-wider">
+                    Отсутствующие ключевые слова
+                  </span>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {result.atsDetails.missingKeywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className="text-[12px] px-2.5 py-1 rounded-lg bg-[var(--primary-light)] text-[var(--primary)] font-medium"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Feedback */}
+          {result.feedback && result.feedback.length > 0 && (
+            <div className="card p-6">
+              <h3 className="font-display text-sm font-bold text-[var(--fg)] mb-3 uppercase tracking-wider">
+                Рекомендации
+              </h3>
+              <ul className="space-y-2">
+                {result.feedback.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-[14px] text-[var(--fg-muted)]">
+                    <span className="text-[var(--warning)] mt-0.5 flex-shrink-0">&#9679;</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Letter content */}
           <div className="card p-7 relative overflow-hidden">
