@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { resumes, coverLetters } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
 import Link from "next/link";
+import { ResumeUpload } from "../profile/resume-upload";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -10,14 +11,16 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [resumeRows, letterRows] = await Promise.all([
+  const [resumeRows, letterRows, userResumes] = await Promise.all([
     db.select({ count: count() }).from(resumes).where(eq(resumes.userId, userId)),
     db.select({ count: count() }).from(coverLetters).where(eq(coverLetters.userId, userId)),
+    db.select().from(resumes).where(eq(resumes.userId, userId)).limit(1),
   ]);
 
   const resumeCount = resumeRows[0]?.count ?? 0;
   const letterCount = letterRows[0]?.count ?? 0;
   const hasResume = resumeCount > 0;
+  const currentResume = userResumes[0] ?? null;
 
   return (
     <div className="max-w-6xl mx-auto px-5 sm:px-8 py-10 md:py-14">
@@ -49,7 +52,7 @@ export default async function DashboardPage() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d={hasResume
                   ? "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  : "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                  : "M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
                 } />
               </svg>
             </div>
@@ -75,32 +78,8 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Resume warning */}
-      {!hasResume && (
-        <div className="mt-6 animate-fade-up delay-200 card border-[var(--primary)]/20 bg-[var(--primary-light)] p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg className="w-5 h-5 text-[var(--primary)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-display font-bold text-[var(--fg)] text-[15px]">
-                Загрузите резюме
-              </h3>
-              <p className="text-[var(--fg-muted)] text-sm mt-1 leading-relaxed">
-                Для создания сопроводительных писем необходимо загрузить резюме в профиле.
-              </p>
-              <Link href="/profile" className="btn-primary !py-2 !px-5 !text-sm mt-4">
-                Перейти в профиль
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Quick actions */}
-      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-up delay-300">
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-up delay-200">
         <Link
           href="/generate"
           className="group relative card card-interactive bg-[var(--primary)] border-[var(--primary)] p-7 overflow-hidden"
@@ -109,12 +88,8 @@ export default async function DashboardPage() {
           <svg className="w-7 h-7 text-white/80 mb-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
           </svg>
-          <h3 className="font-display font-bold text-white text-lg">
-            Создать письмо
-          </h3>
-          <p className="text-white/60 text-sm mt-1.5">
-            Вставьте URL вакансии и получите письмо
-          </p>
+          <h3 className="font-display font-bold text-white text-lg">Создать письмо</h3>
+          <p className="text-white/60 text-sm mt-1.5">Вставьте URL вакансии и получите письмо</p>
           <div className="absolute bottom-4 right-4 text-white/30 group-hover:text-white/60 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
@@ -127,20 +102,80 @@ export default async function DashboardPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <h3 className="font-display font-bold text-[var(--fg)] text-lg">История</h3>
-          <p className="text-[var(--fg-muted)] text-sm mt-1.5">
-            Все ваши сопроводительные письма
-          </p>
+          <p className="text-[var(--fg-muted)] text-sm mt-1.5">Все ваши сопроводительные письма</p>
         </Link>
+      </div>
 
-        <Link href="/profile" className="group card card-interactive p-7">
-          <svg className="w-7 h-7 text-[var(--fg-subtle)] mb-4 group-hover:text-[var(--primary)] transition-colors" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-          </svg>
-          <h3 className="font-display font-bold text-[var(--fg)] text-lg">Профиль</h3>
-          <p className="text-[var(--fg-muted)] text-sm mt-1.5">
-            Управление резюме и настройки
-          </p>
-        </Link>
+      {/* ── Profile section ── */}
+      <div id="profile" className="mt-14 pt-10 border-t border-[var(--border)] animate-fade-up delay-300">
+        <span className="text-[var(--primary)] text-[13px] font-bold tracking-widest uppercase">
+          Профиль
+        </span>
+
+        {/* User card */}
+        <div className="card p-6 mt-4">
+          <div className="flex items-center gap-4">
+            {session.user.image ? (
+              <img
+                src={session.user.image}
+                alt=""
+                className="w-14 h-14 rounded-2xl ring-2 ring-[var(--border)] shadow-sm"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-[var(--primary-light)] flex items-center justify-center">
+                <span className="font-display font-bold text-[var(--primary)] text-lg">
+                  {session.user.name?.[0] ?? "?"}
+                </span>
+              </div>
+            )}
+            <div>
+              <h2 className="font-display font-bold text-[var(--fg)] text-lg">
+                {session.user.name}
+              </h2>
+              <p className="text-[var(--fg-muted)] text-sm">{session.user.email}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Resume */}
+        <div className="mt-8">
+          <h3 className="font-display text-lg font-bold text-[var(--fg)] tracking-tight">
+            Резюме
+          </h3>
+
+          <div className="mt-3 card border-[var(--warning)]/20 bg-[var(--warning-light)] p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-[var(--warning)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <p className="text-sm text-[var(--warning)] leading-relaxed font-medium">
+                Ваше резюме должно быть полностью заполнено — опыт, навыки, образование.
+              </p>
+            </div>
+          </div>
+
+          {currentResume && (
+            <div className="mt-3 card border-[var(--success)]/20 bg-[var(--success-light)] p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[var(--success)]/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--success)]">{currentResume.fileName}</p>
+                  <p className="text-xs text-[var(--success)]/70 mt-0.5">
+                    Загружено {new Date(currentResume.uploadedAt).toLocaleDateString("ru-RU", {
+                      day: "numeric", month: "long", year: "numeric",
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <ResumeUpload hasExisting={!!currentResume} />
+        </div>
       </div>
     </div>
   );

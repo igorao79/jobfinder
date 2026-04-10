@@ -25,7 +25,6 @@ export function Header() {
     { href: "/dashboard", label: "Главная" },
     { href: "/generate", label: "Создать письмо" },
     { href: "/history", label: "История" },
-    { href: "/profile", label: "Профиль" },
   ];
 
   const isActive = (href: string) => pathname === href;
@@ -76,18 +75,29 @@ export function Header() {
           <div className="flex items-center gap-3">
             {session ? (
               <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2.5">
-                  {session.user?.image && (
+                {/* Clickable avatar + name → scrolls to profile on dashboard */}
+                <Link
+                  href="/dashboard#profile"
+                  className="hidden sm:flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-gray-50 transition-colors group"
+                >
+                  {session.user?.image ? (
                     <img
                       src={session.user.image}
                       alt=""
-                      className="w-8 h-8 rounded-full ring-2 ring-white shadow-sm"
+                      className="w-8 h-8 rounded-full ring-2 ring-white shadow-sm group-hover:ring-[var(--primary-light)] transition-all"
                     />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-[var(--primary-light)] flex items-center justify-center">
+                      <span className="text-[var(--primary)] font-display font-bold text-xs">
+                        {session.user?.name?.[0] ?? "?"}
+                      </span>
+                    </div>
                   )}
-                  <span className="text-sm font-medium text-[var(--fg-muted)]">
+                  <span className="text-sm font-medium text-[var(--fg-muted)] group-hover:text-[var(--fg)] transition-colors">
                     {session.user?.name?.split(" ")[0]}
                   </span>
-                </div>
+                </Link>
+
                 <button
                   onClick={() => signOut()}
                   className="text-[13px] font-medium text-[var(--fg-subtle)] hover:text-[var(--primary)] transition-colors px-3 py-1.5 rounded-lg hover:bg-[var(--primary-light)]"
@@ -145,6 +155,12 @@ export function Header() {
                   {link.label}
                 </Link>
               ))}
+              <Link
+                href="/dashboard#profile"
+                className="px-4 py-3 rounded-xl text-[15px] font-medium text-[var(--fg-muted)] hover:bg-gray-50 transition-colors"
+              >
+                Профиль
+              </Link>
             </div>
           </nav>
         )}
