@@ -56,12 +56,9 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="mt-10 pt-6 border-t border-[var(--border)] flex items-center justify-center">
           <p className="text-xs text-[var(--fg-subtle)]">
             &copy; {new Date().getFullYear()} JobFinder. Все права защищены.
-          </p>
-          <p className="text-xs text-[var(--fg-subtle)]">
-            Создано с использованием Next.js и Groq AI
           </p>
         </div>
       </div>

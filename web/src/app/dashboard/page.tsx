@@ -82,7 +82,8 @@ export default async function DashboardPage() {
       <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-up delay-200">
         <Link
           href="/generate"
-          className="group relative card card-interactive bg-[var(--primary)] border-[var(--primary)] p-7 overflow-hidden"
+          className="group relative rounded-2xl border border-[var(--primary)] p-7 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+          style={{ background: "var(--primary)" }}
         >
           <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-white/5" />
           <svg className="w-7 h-7 text-white/80 mb-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
