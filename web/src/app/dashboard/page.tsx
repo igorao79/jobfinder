@@ -78,104 +78,66 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-up delay-200">
-        <Link
-          href="/generate"
-          className="group relative rounded-2xl border border-[var(--primary)] p-7 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+      {/* Create letter + Resume */}
+      <div className="mt-8 animate-fade-up delay-200">
+        <div
+          className="rounded-2xl border border-[var(--primary)] p-7 overflow-hidden relative"
           style={{ background: "var(--primary)" }}
         >
-          <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-white/5" />
-          <svg className="w-7 h-7 text-white/80 mb-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-          </svg>
-          <h3 className="font-display font-bold text-white text-lg">Создать письмо</h3>
-          <p className="text-white/60 text-sm mt-1.5">Вставьте URL вакансии и получите письмо</p>
-          <div className="absolute bottom-4 right-4 text-white/30 group-hover:text-white/60 transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/5" />
+
+          <div className="relative">
+            <svg className="w-7 h-7 text-white/80 mb-3" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
             </svg>
-          </div>
-        </Link>
+            <h3 className="font-display font-bold text-white text-xl">
+              Создать письмо
+            </h3>
 
-        <Link href="/history" className="group card card-interactive p-7">
-          <svg className="w-7 h-7 text-[var(--fg-subtle)] mb-4 group-hover:text-[var(--primary)] transition-colors" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h3 className="font-display font-bold text-[var(--fg)] text-lg">История</h3>
-          <p className="text-[var(--fg-muted)] text-sm mt-1.5">Все ваши сопроводительные письма</p>
-        </Link>
-      </div>
-
-      {/* ── Profile section ── */}
-      <div id="profile" className="mt-14 pt-10 border-t border-[var(--border)] animate-fade-up delay-300">
-        <span className="text-[var(--primary)] text-[13px] font-bold tracking-widest uppercase">
-          Профиль
-        </span>
-
-        {/* User card */}
-        <div className="card p-6 mt-4">
-          <div className="flex items-center gap-4">
-            {session.user.image ? (
-              <img
-                src={session.user.image}
-                alt=""
-                className="w-14 h-14 rounded-2xl ring-2 ring-[var(--border)] shadow-sm"
-              />
-            ) : (
-              <div className="w-14 h-14 rounded-2xl bg-[var(--primary-light)] flex items-center justify-center">
-                <span className="font-display font-bold text-[var(--primary)] text-lg">
-                  {session.user.name?.[0] ?? "?"}
-                </span>
-              </div>
-            )}
-            <div>
-              <h2 className="font-display font-bold text-[var(--fg)] text-lg">
-                {session.user.name}
-              </h2>
-              <p className="text-[var(--fg-muted)] text-sm">{session.user.email}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Resume */}
-        <div className="mt-8">
-          <h3 className="font-display text-lg font-bold text-[var(--fg)] tracking-tight">
-            Резюме
-          </h3>
-
-          <div className="mt-3 card border-[var(--warning)]/20 bg-[var(--warning-light)] p-4">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-[var(--warning)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-              <p className="text-sm text-[var(--warning)] leading-relaxed font-medium">
+            {/* Resume disclaimer */}
+            <div className="mt-4 bg-white/10 rounded-xl p-3.5">
+              <p className="text-white/70 text-[13px] leading-relaxed">
                 Ваше резюме должно быть полностью заполнено — опыт, навыки, образование.
               </p>
             </div>
-          </div>
 
-          {currentResume && (
-            <div className="mt-3 card border-[var(--success)]/20 bg-[var(--success-light)] p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[var(--success)]/10 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            {/* Current resume status */}
+            {currentResume && (
+              <div className="mt-3 bg-white/10 rounded-xl p-3.5">
+                <div className="flex items-center gap-2.5">
+                  <svg className="w-5 h-5 text-green-300 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-[var(--success)]">{currentResume.fileName}</p>
-                  <p className="text-xs text-[var(--success)]/70 mt-0.5">
-                    Загружено {new Date(currentResume.uploadedAt).toLocaleDateString("ru-RU", {
-                      day: "numeric", month: "long", year: "numeric",
-                    })}
-                  </p>
+                  <div>
+                    <p className="text-[13px] font-semibold text-white">
+                      {currentResume.fileName}
+                    </p>
+                    <p className="text-[11px] text-white/50 mt-0.5">
+                      Загружено {new Date(currentResume.uploadedAt).toLocaleDateString("ru-RU", {
+                        day: "numeric", month: "long", year: "numeric",
+                      })}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <ResumeUpload hasExisting={!!currentResume} />
+            {/* Resume upload */}
+            <ResumeUpload hasExisting={!!currentResume} dark />
+
+            {/* CTA button */}
+            {hasResume && (
+              <Link
+                href="/generate"
+                className="mt-5 w-full inline-flex items-center justify-center gap-2 bg-white text-[var(--primary)] py-3.5 rounded-xl font-bold text-[15px] hover:bg-white/90 transition-all shadow-lg shadow-black/10"
+              >
+                Перейти к генерации
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>
