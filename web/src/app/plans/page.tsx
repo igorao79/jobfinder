@@ -1,27 +1,24 @@
-import Link from "next/link";
+"use client";
 
-const freePlan = {
-  name: "Бесплатный",
-  price: "0 ₽",
-  period: "навсегда",
-  current: true,
-  features: [
-    { text: "3 письма в день", included: true },
-    { text: "Базовая ATS-проверка", included: true },
-    { text: "Загрузка резюме PDF/DOCX", included: true },
-    { text: "Парсинг вакансий HH.ru", included: true },
-    { text: "Приоритетная генерация", included: false },
-    { text: "Расширенный ATS-анализ", included: false },
-    { text: "Безлимитные письма", included: false },
-    { text: "Шаблоны писем", included: false },
-    { text: "Приоритетная поддержка", included: false },
-  ],
-};
+import Link from "next/link";
+import { useState } from "react";
+
+const freeFeatures = [
+  { text: "3 письма в день", included: true },
+  { text: "Базовая ATS-проверка", included: true },
+  { text: "Загрузка резюме PDF/DOCX", included: true },
+  { text: "Парсинг вакансий HH.ru", included: true },
+  { text: "Приоритетная генерация", included: false },
+  { text: "Расширенный ATS-анализ", included: false },
+  { text: "Безлимитные письма", included: false },
+  { text: "Шаблоны писем", included: false },
+  { text: "Приоритетная поддержка", included: false },
+];
 
 const paidPlans = [
-  { duration: "Неделя", price: "500", priceNum: 500, perDay: "71 ₽/день", popular: false },
-  { duration: "Месяц", price: "2 000", priceNum: 2000, perDay: "67 ₽/день", popular: true },
-  { duration: "Год", price: "10 000", priceNum: 10000, perDay: "27 ₽/день", popular: false },
+  { id: "week", duration: "Неделя", price: "500", perDay: "71 ₽/день" },
+  { id: "month", duration: "Месяц", price: "2 000", perDay: "67 ₽/день" },
+  { id: "year", duration: "Год", price: "10 000", perDay: "27 ₽/день" },
 ];
 
 const paidFeatures = [
@@ -36,6 +33,9 @@ const paidFeatures = [
 ];
 
 export default function PlansPage() {
+  const [selected, setSelected] = useState("month");
+  const activePlan = paidPlans.find((p) => p.id === selected)!;
+
   return (
     <div className="max-w-6xl mx-auto px-5 sm:px-8 py-10 md:py-20">
       {/* Header */}
@@ -63,7 +63,7 @@ export default function PlansPage() {
             </div>
             <div>
               <h2 className="font-display font-bold text-[var(--fg)] text-xl">
-                {freePlan.name}
+                Бесплатный
               </h2>
               <span className="text-[12px] text-[var(--success)] font-semibold bg-[var(--success-light)] px-2 py-0.5 rounded-md">
                 Ваш текущий план
@@ -72,20 +72,20 @@ export default function PlansPage() {
           </div>
 
           <div className="mt-6">
-            <span className="font-display text-4xl font-bold text-[var(--fg)]">0 ₽</span>
+            <span className="font-display text-4xl font-bold text-[var(--fg)]">0&nbsp;₽</span>
             <span className="text-[var(--fg-muted)] text-sm ml-2">навсегда</span>
           </div>
 
           <div className="mt-8 flex-1">
             <ul className="space-y-3">
-              {freePlan.features.map((f) => (
+              {freeFeatures.map((f) => (
                 <li key={f.text} className="flex items-center gap-3">
                   {f.included ? (
                     <svg className="w-5 h-5 text-[var(--success)] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                     </svg>
                   ) : (
-                    <svg className="w-5 h-5 text-[var(--fg-subtle)]/40 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   )}
@@ -105,12 +105,11 @@ export default function PlansPage() {
           </Link>
         </div>
 
-        {/* ── Paid plan ── */}
+        {/* ── PRO plan ── */}
         <div
           className="rounded-2xl p-8 flex flex-col relative overflow-hidden border-2 border-[var(--primary)]"
           style={{ background: "var(--primary)" }}
         >
-          {/* Decorative */}
           <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/5" />
           <div className="absolute bottom-10 -left-10 w-24 h-24 rounded-full bg-white/5" />
 
@@ -129,18 +128,19 @@ export default function PlansPage() {
               </div>
             </div>
 
-            {/* Price options */}
+            {/* Period selector */}
             <div className="mt-6 grid grid-cols-3 gap-2">
               {paidPlans.map((plan) => (
-                <div
-                  key={plan.duration}
-                  className={`rounded-xl p-3 text-center transition-all cursor-pointer ${
-                    plan.popular
-                      ? "bg-white/20 border-2 border-white/30 scale-[1.02]"
-                      : "bg-white/10 border border-white/10 hover:bg-white/15"
+                <button
+                  key={plan.id}
+                  onClick={() => setSelected(plan.id)}
+                  className={`rounded-xl p-3 text-center transition-all cursor-pointer relative ${
+                    selected === plan.id
+                      ? "bg-white/20 border-2 border-white/40 scale-[1.03]"
+                      : "bg-white/8 border border-white/10 hover:bg-white/15"
                   }`}
                 >
-                  {plan.popular && (
+                  {plan.id === "month" && (
                     <span className="text-[10px] font-bold text-yellow-300 uppercase tracking-wider block mb-1">
                       Выгодно
                     </span>
@@ -150,12 +150,22 @@ export default function PlansPage() {
                   </p>
                   <p className="text-white/50 text-[11px] mt-0.5">{plan.duration}</p>
                   <p className="text-white/40 text-[10px] mt-1">{plan.perDay}</p>
-                </div>
+                </button>
               ))}
             </div>
 
+            {/* Selected price summary */}
+            <div className="mt-5 text-center">
+              <span className="font-display text-3xl font-bold text-white">
+                {activePlan.price}&nbsp;₽
+              </span>
+              <span className="text-white/50 text-sm ml-2">
+                / {activePlan.duration.toLowerCase()}
+              </span>
+            </div>
+
             {/* Features */}
-            <div className="mt-8">
+            <div className="mt-6">
               <ul className="space-y-3">
                 {paidFeatures.map((f) => (
                   <li key={f} className="flex items-center gap-3">
@@ -170,7 +180,7 @@ export default function PlansPage() {
 
             {/* CTA */}
             <button className="mt-8 w-full inline-flex items-center justify-center gap-2 bg-white text-[var(--primary)] py-3.5 rounded-xl font-bold text-[15px] hover:bg-white/90 transition-all shadow-lg shadow-black/10 cursor-pointer">
-              Оформить PRO
+              Оформить PRO — {activePlan.price}&nbsp;₽
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
@@ -179,10 +189,10 @@ export default function PlansPage() {
         </div>
       </div>
 
-      {/* FAQ / trust */}
+      {/* Trust */}
       <div className="mt-16 text-center animate-fade-up delay-200">
         <p className="text-[var(--fg-subtle)] text-sm">
-          Все планы включают бесплатную загрузку резюме и парсинг вакансий HH.ru.
+          Все планы включают загрузку резюме и парсинг вакансий HH.ru.
           <br />
           Оплата безопасна. Отмена подписки в любой момент.
         </p>
