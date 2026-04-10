@@ -145,11 +145,11 @@ export default function PlansPage() {
                       Выгодно
                     </span>
                   )}
-                  <p className="font-display font-bold text-white text-lg leading-tight">
-                    {plan.price} ₽
+                  <p className="font-display font-bold text-white text-base leading-tight whitespace-nowrap">
+                    {plan.price}&nbsp;₽
                   </p>
-                  <p className="text-white/50 text-[12px] mt-0.5">{plan.duration}</p>
-                  <p className="text-white/40 text-[11px] mt-1">{plan.perDay}</p>
+                  <p className="text-white/50 text-[11px] mt-0.5">{plan.duration}</p>
+                  <p className="text-white/40 text-[10px] mt-1">{plan.perDay}</p>
                 </div>
               ))}
             </div>
