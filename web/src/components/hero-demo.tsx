@@ -7,17 +7,18 @@ const STAGES = [
   { id: "parse", label: "Анализ вакансии", duration: 3000 },
   { id: "generate", label: "Генерация письма", duration: 3500 },
   { id: "ats", label: "Проверка ATS", duration: 2500 },
+  { id: "invite", label: "Приглашение", duration: 3000 },
 ] as const;
 
 const RESUME_LINES = [
-  { text: "Горецкий Игорь Д.", bold: true },
-  { text: "Full-stack Developer", bold: false },
+  { text: "Алексей Волков", bold: true },
+  { text: "Frontend Developer", bold: false },
   { text: "─────────────────────", dim: true },
-  { text: "React · TypeScript · Node.js", bold: false },
-  { text: "PostgreSQL · Docker · Git", bold: false },
-  { text: "3 года коммерческого опыта", bold: false },
+  { text: "React · TypeScript · Next.js", bold: false },
+  { text: "Node.js · PostgreSQL · Docker", bold: false },
+  { text: "4 года коммерческого опыта", bold: false },
   { text: "─────────────────────", dim: true },
-  { text: "Опыт: M.S.T. — AI Platform", bold: false },
+  { text: "Опыт: Яндекс, Сбер, стартапы", bold: false },
 ];
 
 const VACANCY_LINES = [
@@ -38,8 +39,8 @@ const LETTER_LINES = [
   "Frontend-разработчика в вашей",
   "компании «ГК Инновации».",
   "",
-  "Имею 3 года опыта работы с",
-  "React, TypeScript и Node.js...",
+  "Имею 4 года опыта работы с",
+  "React, TypeScript и Next.js...",
 ];
 
 const ATS_CHECKS = [
@@ -72,7 +73,7 @@ export function HeroDemo() {
           setTypedLines(0);
           setAtsIndex(0);
           setIsPaused(false);
-        }, 3500);
+        }, 4000);
       }
     }, STAGES[stage].duration);
     return () => clearTimeout(timer);
@@ -101,6 +102,8 @@ export function HeroDemo() {
     }, 450);
     return () => clearInterval(interval);
   }, [stage]);
+
+  const isFinished = isPaused && stage === STAGES.length - 1;
 
   return (
     <div className="relative w-[400px] select-none">
@@ -141,7 +144,7 @@ export function HeroDemo() {
 
           <div className="mt-3 flex items-center gap-2.5">
             <div className="relative w-5 h-5 flex-shrink-0">
-              {isPaused && stage === STAGES.length - 1 ? (
+              {isFinished ? (
                 <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
@@ -150,12 +153,12 @@ export function HeroDemo() {
               )}
             </div>
             <span className="text-[13px] font-semibold text-white/70 tracking-wide">
-              {isPaused && stage === STAGES.length - 1 ? "Готово!" : STAGES[stage].label}
+              {isFinished ? "Готово!" : STAGES[stage].label}
             </span>
           </div>
         </div>
 
-        {/* Fixed-height content area — no layout shifts */}
+        {/* Fixed-height content area */}
         <div className="px-5 pb-5 pt-1 h-[310px] relative">
           {/* Stage 0: Resume */}
           <div
@@ -167,8 +170,8 @@ export function HeroDemo() {
                 <span className="text-[11px] font-bold text-white/50">PDF</span>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-white/80 truncate">resume_goretsky.pdf</div>
-                <div className="text-[11px] text-white/35 mt-0.5">247 КБ · загружен</div>
+                <div className="text-[13px] font-semibold text-white/80 truncate">volkov_aleksey_cv.pdf</div>
+                <div className="text-[11px] text-white/35 mt-0.5">312 КБ</div>
               </div>
               <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -199,8 +202,9 @@ export function HeroDemo() {
           >
             <div className="bg-white/[0.06] rounded-xl p-3.5 border border-white/[0.08]">
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757" />
+                {/* Search icon */}
+                <svg className="w-4 h-4 text-white/40 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                 </svg>
                 <span className="text-[12px] text-white/40 font-mono truncate">hh.ru/vacancy/131478268</span>
               </div>
@@ -259,10 +263,11 @@ export function HeroDemo() {
                 )}
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-2">
-              <svg className="w-3.5 h-3.5 text-white/30 animate-spin" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25" />
-              </svg>
+            {/* Spinner below letter */}
+            <div className="mt-3 flex items-center gap-2.5">
+              <div className="relative w-4 h-4 flex-shrink-0">
+                <div className="absolute inset-0 rounded-full border-[1.5px] border-white/15 border-t-white/50 animate-spin" />
+              </div>
               <span className="text-[11px] text-white/30 font-medium">Groq AI генерирует...</span>
             </div>
           </div>
@@ -310,6 +315,75 @@ export function HeroDemo() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="text-[14px] font-bold text-green-400">ATS: 91/100</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Stage 4: Invite from HH */}
+          <div
+            className="absolute inset-x-5 top-1 transition-opacity duration-300"
+            style={{ opacity: stage === 4 ? 1 : 0, pointerEvents: stage === 4 ? "auto" : "none" }}
+          >
+            <div className="flex flex-col items-center justify-center h-[290px]">
+              {/* HH logo badge */}
+              <div
+                className="w-14 h-14 rounded-2xl bg-[#D6001C] flex items-center justify-center mb-5"
+                style={{
+                  opacity: stage === 4 ? 1 : 0,
+                  transform: stage === 4 ? "scale(1)" : "scale(0.5)",
+                  transition: "all 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+                }}
+              >
+                <span className="text-white font-bold text-lg">hh</span>
+              </div>
+
+              {/* Message card */}
+              <div
+                className="bg-white/[0.08] rounded-xl border border-white/[0.12] p-5 w-full"
+                style={{
+                  opacity: stage === 4 ? 1 : 0,
+                  transform: stage === 4 ? "translateY(0)" : "translateY(16px)",
+                  transition: "all 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s",
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-[11px] text-white/40 font-mono">Новое сообщение</span>
+                </div>
+                <p className="text-[13px] text-white/90 font-semibold leading-snug">
+                  ГК Инновации
+                </p>
+                <p className="text-[12px] text-white/60 leading-relaxed mt-2">
+                  Здравствуйте, Алексей! Ваше сопроводительное письмо произвело отличное впечатление. Мы готовы пригласить вас на следующий этап — техническое собеседование.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <div className="flex-1 bg-green-500/20 border border-green-500/30 rounded-lg py-2 text-center">
+                    <span className="text-[12px] font-semibold text-green-400">Принять</span>
+                  </div>
+                  <div className="flex-1 bg-white/5 border border-white/10 rounded-lg py-2 text-center">
+                    <span className="text-[12px] font-medium text-white/40">Позже</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Confetti dots */}
+              <div
+                className="flex gap-1.5 mt-4"
+                style={{
+                  opacity: stage === 4 ? 1 : 0,
+                  transition: "opacity 0.5s ease 0.6s",
+                }}
+              >
+                {["bg-green-400", "bg-yellow-400", "bg-blue-400", "bg-green-400", "bg-pink-400"].map((color, i) => (
+                  <div
+                    key={i}
+                    className={`w-1.5 h-1.5 rounded-full ${color}`}
+                    style={{
+                      opacity: 0.6,
+                      animation: stage === 4 ? `pulse-ring 1.5s ease ${i * 0.15}s infinite` : "none",
+                    }}
+                  />
+                ))}
               </div>
             </div>
           </div>
