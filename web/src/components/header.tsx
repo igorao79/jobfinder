@@ -25,6 +25,7 @@ export function Header() {
     { href: "/dashboard", label: "Главная" },
     { href: "/generate", label: "Создать письмо" },
     { href: "/history", label: "История" },
+    { href: "/plans", label: "Планы" },
   ];
 
   const isActive = (href: string) => pathname === href;
