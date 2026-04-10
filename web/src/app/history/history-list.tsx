@@ -59,9 +59,15 @@ export function HistoryList({ letters }: { letters: Letter[] }) {
               </h3>
               <div className="flex items-center gap-2 mt-1">
                 {letter.company && (
-                  <span className="text-[13px] text-[var(--fg-muted)] truncate">
+                  <a
+                    href={letter.jobUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-[13px] text-[var(--primary)] hover:underline truncate cursor-pointer font-medium"
+                  >
                     {letter.company}
-                  </span>
+                  </a>
                 )}
                 {letter.company && (
                   <span className="text-[var(--border)]">&middot;</span>
@@ -95,10 +101,10 @@ export function HistoryList({ letters }: { letters: Letter[] }) {
               {/* Copy */}
               <button
                 onClick={(e) => handleCopy(e, letter.content, letter.id)}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                   copied === letter.id
-                    ? "bg-[var(--success-light)] text-[var(--success)]"
-                    : "hover:bg-gray-100 text-[var(--fg-subtle)] hover:text-[var(--fg)]"
+                    ? "bg-[var(--success-light)] text-[var(--success)] scale-110"
+                    : "bg-gray-100 text-[var(--fg-muted)] hover:bg-[var(--primary-light)] hover:text-[var(--primary)] hover:scale-105"
                 }`}
                 title="Копировать"
               >
@@ -116,7 +122,7 @@ export function HistoryList({ letters }: { letters: Letter[] }) {
               {/* Delete */}
               <button
                 onClick={(e) => handleDelete(e, letter.id)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--fg-subtle)] hover:text-[var(--primary)] hover:bg-[var(--primary-light)] transition-colors"
+                className="w-9 h-9 rounded-xl flex items-center justify-center bg-gray-100 text-[var(--fg-muted)] hover:bg-red-50 hover:text-[var(--primary)] hover:scale-105 transition-all cursor-pointer"
                 title="Удалить"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
